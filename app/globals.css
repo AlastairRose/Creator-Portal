@@ -1,7 +1,26 @@
 @import "tailwindcss";
 
-/* Force dark theme always — this is an internal tool, no light mode. */
+/* Light palette by default; .dark (toggled by a pre-hydration inline
+   script in app/layout.tsx, based on a stored preference or the system's
+   prefers-color-scheme) overrides it. */
 :root {
+  --background: #ffffff;
+  --surface: #f4f4f5;
+  --surface-raised: #e9e9ec;
+  --border: #e2e2e6;
+  --foreground: #18181b;
+  --muted: #6b6b76;
+  --accent: #6366f1;
+
+  --danger: #ef4444;
+  --warning: #ca8a04;
+  --orange: #ea580c;
+  --success: #16a34a;
+
+  color-scheme: light;
+}
+
+.dark {
   --background: #0a0a0b;
   --surface: #141416;
   --surface-raised: #1c1c1f;
@@ -14,6 +33,8 @@
   --warning: #eab308;
   --orange: #f97316;
   --success: #22c55e;
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -32,10 +53,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-html {
-  color-scheme: dark;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -45,8 +62,8 @@ body {
   border-color: var(--border);
 }
 
-/* Report documents render inside the normal dark app chrome on screen, but
-   print as a plain white page with no sidebar/nav. */
+/* Report documents render inside the normal app chrome on screen (light or
+   dark), but print as a plain white page with no sidebar/nav regardless. */
 @media print {
   .no-print {
     display: none !important;
