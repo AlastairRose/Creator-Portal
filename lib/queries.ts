@@ -8,6 +8,7 @@ import type {
   OnlyfansContentRequest,
   OutstandingCustom,
   Profile,
+  RdIdea,
   Reel,
 } from "@/lib/types";
 
@@ -94,6 +95,16 @@ export async function getReelsForWeek(contentWeekId: string): Promise<Reel[]> {
     .order("sort_order", { ascending: true });
   if (error) throw new Error(error.message);
   return data as Reel[];
+}
+
+export async function getRdIdeas(): Promise<RdIdea[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("rd_ideas")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data as RdIdea[];
 }
 
 export async function getCreatorSocialAccounts(creatorId: string): Promise<CreatorSocialAccount[]> {

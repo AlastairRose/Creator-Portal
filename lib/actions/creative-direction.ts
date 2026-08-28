@@ -47,10 +47,19 @@ export type ReelDraftFields = {
   vertical: string | null;
 };
 
-function normalizeReelFields(fields: ReelDraftFields) {
-  const missing = getMissingReelFields(fields);
-  if (missing.length > 0) {
-    throw new Error(`Fill in every field before saving — missing: ${missing.join(", ")}.`);
+// `requireAll` gates the "every field required" rule — that only applies to
+// reels typed from scratch via the manual "Add reel" form. Reels duplicated
+// from an existing one, or pushed in from an R&D idea (which only ever has
+// a handful of fields filled in), need to land — and be editable afterwards
+// — without being forced to have every field at once.
+function normalizeReelFields(fields: ReelDraftFields, requireAll: boolean) {
+  if (requireAll) {
+    const missing = getMissingReelFields(fields);
+    if (missing.length > 0) {
+      throw new Error(`Fill in every field before saving — missing: ${missing.join(", ")}.`);
+    }
+  } else if (!fields.name.trim() || !fields.idea.trim()) {
+    throw new Error("Name and idea can't be empty.");
   }
   return {
     name: fields.name.trim(),
@@ -67,11 +76,12 @@ function normalizeReelFields(fields: ReelDraftFields) {
   };
 }
 
-export async function createDraftReel(
+async function insertReel(
   contentWeekId: string,
   creatorId: string,
   fields: ReelDraftFields,
-  sortOrder: number
+  sortOrder: number,
+  requireAll: boolean
 ) {
   await requireStaff();
   const supabase = await createClient();
@@ -79,10 +89,32 @@ export async function createDraftReel(
     content_week_id: contentWeekId,
     creator_id: creatorId,
     sort_order: sortOrder,
-    ...normalizeReelFields(fields),
+    ...normalizeReelFields(fields, requireAll),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/creative-direction");
+}
+
+// The manual "Add reel" form — forces every field to be filled in.
+export async function createDraftReel(
+  contentWeekId: string,
+  creatorId: string,
+  fields: ReelDraftFields,
+  sortOrder: number
+) {
+  return insertReel(contentWeekId, creatorId, fields, sortOrder, true);
+}
+
+// Duplicating an existing reel, or pushing one in from an R&D idea — both
+// are meant to land quickly with whatever's already known, to be finished
+// off afterwards, so they skip the "every field required" gate.
+export async function createDraftReelLenient(
+  contentWeekId: string,
+  creatorId: string,
+  fields: ReelDraftFields,
+  sortOrder: number
+) {
+  return insertReel(contentWeekId, creatorId, fields, sortOrder, false);
 }
 
 export async function updateDraftReel(reelId: string, fields: ReelDraftFields) {
@@ -90,7 +122,7 @@ export async function updateDraftReel(reelId: string, fields: ReelDraftFields) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("reels")
-    .update(normalizeReelFields(fields))
+    .update(normalizeReelFields(fields, false))
     .eq("id", reelId);
   if (error) throw new Error(error.message);
   revalidatePath("/creative-direction");

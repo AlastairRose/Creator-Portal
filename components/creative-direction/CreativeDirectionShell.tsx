@@ -7,7 +7,12 @@ import type { Creator } from "@/lib/types";
 const TABS = [
   { href: "/creative-direction", label: "Reel Planner" },
   { href: "/creative-direction/overall-plan", label: "Overall Plan" },
+  { href: "/creative-direction/rd", label: "R&D" },
 ];
+
+// R&D is a shared idea library, not scoped to one creator, so it doesn't
+// need (and would be misleading next to) the creator selector.
+const CREATOR_SCOPED_TABS = new Set(["/creative-direction", "/creative-direction/overall-plan"]);
 
 export default function CreativeDirectionShell({
   creators,
@@ -20,6 +25,7 @@ export default function CreativeDirectionShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selectedCreatorId = searchParams.get("creatorId") ?? creators[0]?.id ?? "";
+  const isCreatorScoped = CREATOR_SCOPED_TABS.has(pathname);
 
   function handleCreatorChange(creatorId: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -28,6 +34,7 @@ export default function CreativeDirectionShell({
   }
 
   function tabHref(href: string) {
+    if (!CREATOR_SCOPED_TABS.has(href)) return href;
     const params = new URLSearchParams(searchParams.toString());
     if (selectedCreatorId) params.set("creatorId", selectedCreatorId);
     return `${href}?${params.toString()}`;
@@ -35,22 +42,24 @@ export default function CreativeDirectionShell({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-surface p-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted">Creator</label>
-          <select
-            value={selectedCreatorId}
-            onChange={(e) => handleCreatorChange(e.target.value)}
-            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
-          >
-            {creators.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+      {isCreatorScoped && (
+        <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-surface p-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">Creator</label>
+            <select
+              value={selectedCreatorId}
+              onChange={(e) => handleCreatorChange(e.target.value)}
+              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              {creators.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex gap-1 border-b border-border">
         {TABS.map((tab) => {

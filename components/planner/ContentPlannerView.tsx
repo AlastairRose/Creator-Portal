@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateContentWeekDriveLink } from "@/lib/actions/planner";
-import { formatWeekLabel } from "@/lib/weeks";
+import WeekPicker from "@/components/shared/WeekPicker";
 import type {
   ContentWeek,
   Creator,
@@ -50,13 +50,7 @@ export default function ContentPlannerView({
       <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-surface p-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted">Week</label>
-          <input
-            type="date"
-            value={weekStartDate}
-            onChange={(e) => navigateWeek(e.target.value)}
-            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
-          />
-          <span className="text-xs text-muted">{formatWeekLabel(weekStartDate)}</span>
+          <WeekPicker weekStartDate={weekStartDate} onChange={navigateWeek} />
         </div>
         {contentWeek && <DriveLinkField contentWeekId={contentWeek.id} initialLink={contentWeek.drive_link} />}
       </div>

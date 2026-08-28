@@ -150,6 +150,18 @@ export type WinningIdea = {
   updated_at: string;
 };
 
+export type RdIdea = {
+  id: string;
+  title: string;
+  source_link: string | null;
+  notes: string | null;
+  vertical: string | null;
+  suitable_creator_ids: string[];
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "twitter" | "youtube";
 
 export const SOCIAL_PLATFORMS: SocialPlatform[] = [

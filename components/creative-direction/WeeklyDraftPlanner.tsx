@@ -4,14 +4,15 @@ import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
 import {
   createDraftReel,
+  createDraftReelLenient,
   deleteDraftReel,
   ensureDraftWeek,
   publishContentWeek,
   updateDraftReel,
   type ReelDraftFields,
 } from "@/lib/actions/creative-direction";
-import { formatWeekLabel } from "@/lib/weeks";
 import { getMissingReelFields } from "@/lib/reels";
+import WeekPicker from "@/components/shared/WeekPicker";
 import type { ContentWeek, Reel } from "@/lib/types";
 
 const EMPTY_FIELDS: ReelDraftFields = {
@@ -70,13 +71,7 @@ export default function WeeklyDraftPlanner({
       <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-surface p-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted">Week</label>
-          <input
-            type="date"
-            value={weekStartDate}
-            onChange={(e) => navigate({ week: e.target.value })}
-            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
-          />
-          <span className="text-xs text-muted">{formatWeekLabel(weekStartDate)}</span>
+          <WeekPicker weekStartDate={weekStartDate} onChange={(week) => navigate({ week })} />
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-sm text-muted">
@@ -116,7 +111,9 @@ export default function WeeklyDraftPlanner({
       </div>
 
       <div className="flex flex-col gap-4">
-        {reels.length > 0 && <ReelsTable reels={reels} disabled={isPublished || isPending} />}
+        {reels.length > 0 && (
+          <ReelsTable reels={reels} disabled={isPublished || isPending} reelCount={reels.length} />
+        )}
 
         {reels.length === 0 && isPublished && (
           <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
@@ -153,7 +150,15 @@ export default function WeeklyDraftPlanner({
   );
 }
 
-function ReelsTable({ reels, disabled }: { reels: Reel[]; disabled: boolean }) {
+function ReelsTable({
+  reels,
+  disabled,
+  reelCount,
+}: {
+  reels: Reel[];
+  disabled: boolean;
+  reelCount: number;
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
@@ -200,7 +205,7 @@ function ReelsTable({ reels, disabled }: { reels: Reel[]; disabled: boolean }) {
                 {isExpanded && (
                   <tr className="border-t border-border">
                     <td colSpan={5} className="bg-background p-4">
-                      <ReelCard reel={reel} disabled={disabled} />
+                      <ReelCard reel={reel} disabled={disabled} reelCount={reelCount} />
                     </td>
                   </tr>
                 )}
@@ -213,7 +218,15 @@ function ReelsTable({ reels, disabled }: { reels: Reel[]; disabled: boolean }) {
   );
 }
 
-function ReelCard({ reel, disabled }: { reel: Reel; disabled: boolean }) {
+function ReelCard({
+  reel,
+  disabled,
+  reelCount,
+}: {
+  reel: Reel;
+  disabled: boolean;
+  reelCount: number;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +256,18 @@ function ReelCard({ reel, disabled }: { reel: Reel; disabled: boolean }) {
     });
   }
 
+  function duplicate() {
+    startTransition(async () => {
+      try {
+        await createDraftReelLenient(reel.content_week_id, reel.creator_id, fields, reelCount);
+        setError(null);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't duplicate that reel.");
+      }
+    });
+  }
+
   return (
     <ReelFieldsForm
       fields={fields}
@@ -252,19 +277,29 @@ function ReelCard({ reel, disabled }: { reel: Reel; disabled: boolean }) {
       footer={
         <div className="flex flex-col gap-2">
           {!disabled && (
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  await deleteDraftReel(reel.id);
-                  router.refresh();
-                })
-              }
-              className="self-start text-xs text-danger hover:underline disabled:opacity-50"
-            >
-              Remove reel
-            </button>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={duplicate}
+                className="self-start text-xs text-accent hover:underline disabled:opacity-50"
+              >
+                Duplicate reel
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() =>
+                  startTransition(async () => {
+                    await deleteDraftReel(reel.id);
+                    router.refresh();
+                  })
+                }
+                className="self-start text-xs text-danger hover:underline disabled:opacity-50"
+              >
+                Remove reel
+              </button>
+            </div>
           )}
           {error && <p className="text-xs text-danger">{error}</p>}
         </div>
