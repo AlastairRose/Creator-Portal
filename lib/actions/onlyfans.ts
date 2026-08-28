@@ -32,10 +32,24 @@ export async function updateOnlyfansRequest(
   if (!fields.description.trim()) throw new Error("Description can't be empty.");
 
   const supabase = await createClient();
-  const { error } = await supabase
+
+  // Only reset the due-date anchor if urgency actually changed — editing
+  // just the description shouldn't restart the countdown.
+  const { data: existing } = await supabase
     .from("onlyfans_content_requests")
-    .update({ description: fields.description.trim(), urgency: fields.urgency })
-    .eq("id", id);
+    .select("urgency")
+    .eq("id", id)
+    .single();
+
+  const update: Record<string, unknown> = {
+    description: fields.description.trim(),
+    urgency: fields.urgency,
+  };
+  if (existing && existing.urgency !== fields.urgency) {
+    update.urgency_set_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase.from("onlyfans_content_requests").update(update).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/planner");
 }

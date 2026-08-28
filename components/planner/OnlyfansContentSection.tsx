@@ -6,15 +6,18 @@ import {
   createOnlyfansRequest,
   deleteOnlyfansRequest,
   markOnlyfansRequestComplete,
+  updateOnlyfansRequest,
 } from "@/lib/actions/onlyfans";
-import { CONTENT_REQUEST_URGENCY_LABELS } from "@/lib/types";
-import type { ContentRequestUrgency, OnlyfansContentRequest } from "@/lib/types";
+import { CONTENT_REQUEST_URGENCY_LABELS, ONLYFANS_DUE_TAG_LABELS } from "@/lib/types";
+import { computeOnlyfansDueTag } from "@/lib/onlyfans";
+import type { ContentRequestUrgency, OnlyfansContentRequest, OnlyfansDueTag } from "@/lib/types";
 
-const URGENCY_BADGE_CLASS: Record<ContentRequestUrgency, string> = {
-  low: "bg-surface-raised text-muted",
-  normal: "bg-accent/15 text-accent",
-  high: "bg-warning/15 text-warning",
-  urgent: "bg-danger/15 text-danger",
+const DUE_TAG_BADGE_CLASS: Record<OnlyfansDueTag, string> = {
+  due_in_2_weeks: "bg-success/15 text-success",
+  due_this_week: "bg-orange/15 text-orange",
+  due_in_3_days: "bg-orange/15 text-orange",
+  due_today: "bg-danger/15 text-danger",
+  overdue: "bg-danger/15 text-danger",
 };
 
 export default function OnlyfansContentSection({
@@ -29,14 +32,14 @@ export default function OnlyfansContentSection({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [description, setDescription] = useState("");
-  const [urgency, setUrgency] = useState<ContentRequestUrgency>("normal");
+  const [urgency, setUrgency] = useState<ContentRequestUrgency>("complete_when_possible");
 
   function handleAdd() {
     if (!description.trim()) return;
     startTransition(async () => {
       await createOnlyfansRequest(creatorId, description, urgency);
       setDescription("");
-      setUrgency("normal");
+      setUrgency("complete_when_possible");
       router.refresh();
     });
   }
@@ -52,67 +55,20 @@ export default function OnlyfansContentSection({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
-              <th className="px-4 py-3 font-medium">Description</th>
+              <th className="px-4 py-3 font-medium">Content Required</th>
               <th className="px-4 py-3 font-medium">Logged</th>
               <th className="px-4 py-3 font-medium">Urgency</th>
+              <th className="px-4 py-3 font-medium">Due</th>
               {isStaff && <th className="px-4 py-3 font-medium"></th>}
             </tr>
           </thead>
           <tbody>
             {[...openRequests, ...completedRequests].map((request) => (
-              <tr key={request.id} className="border-t border-border">
-                <td
-                  className={`px-4 py-3 ${request.status === "completed" ? "text-muted line-through" : ""}`}
-                >
-                  {request.description}
-                </td>
-                <td className="px-4 py-3 text-muted">{request.logged_at}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${URGENCY_BADGE_CLASS[request.urgency]}`}
-                  >
-                    {CONTENT_REQUEST_URGENCY_LABELS[request.urgency]}
-                  </span>
-                </td>
-                {isStaff && (
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-3">
-                      {request.status === "open" && (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() =>
-                            startTransition(async () => {
-                              await markOnlyfansRequestComplete(request.id);
-                              router.refresh();
-                            })
-                          }
-                          className="text-xs text-accent hover:underline disabled:opacity-50"
-                        >
-                          Complete
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() =>
-                          startTransition(async () => {
-                            await deleteOnlyfansRequest(request.id);
-                            router.refresh();
-                          })
-                        }
-                        className="text-xs text-danger hover:underline disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </td>
-                )}
-              </tr>
+              <RequestRow key={request.id} request={request} isStaff={isStaff} />
             ))}
             {requests.length === 0 && (
               <tr>
-                <td colSpan={isStaff ? 4 : 3} className="px-4 py-6 text-center text-muted">
+                <td colSpan={isStaff ? 5 : 4} className="px-4 py-6 text-center text-muted">
                   Nothing logged yet.
                 </td>
               </tr>
@@ -151,5 +107,88 @@ export default function OnlyfansContentSection({
         </div>
       )}
     </section>
+  );
+}
+
+function RequestRow({ request, isStaff }: { request: OnlyfansContentRequest; isStaff: boolean }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const dueTag = computeOnlyfansDueTag(request);
+
+  function changeUrgency(urgency: ContentRequestUrgency) {
+    startTransition(async () => {
+      await updateOnlyfansRequest(request.id, { description: request.description, urgency });
+      router.refresh();
+    });
+  }
+
+  return (
+    <tr className="border-t border-border">
+      <td className={`px-4 py-3 ${request.status === "completed" ? "text-muted line-through" : ""}`}>
+        {request.description}
+      </td>
+      <td className="px-4 py-3 text-muted">{new Date(request.created_at).toLocaleDateString()}</td>
+      <td className="px-4 py-3">
+        {isStaff && request.status === "open" ? (
+          <select
+            value={request.urgency}
+            disabled={isPending}
+            onChange={(e) => changeUrgency(e.target.value as ContentRequestUrgency)}
+            className="rounded-md border border-border bg-surface-raised px-2 py-1.5 text-xs outline-none focus:border-accent disabled:opacity-70"
+          >
+            {(Object.keys(CONTENT_REQUEST_URGENCY_LABELS) as ContentRequestUrgency[]).map((u) => (
+              <option key={u} value={u}>
+                {CONTENT_REQUEST_URGENCY_LABELS[u]}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-muted">{CONTENT_REQUEST_URGENCY_LABELS[request.urgency]}</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {dueTag ? (
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${DUE_TAG_BADGE_CLASS[dueTag]}`}>
+            {ONLYFANS_DUE_TAG_LABELS[dueTag]}
+          </span>
+        ) : (
+          <span className="text-muted">—</span>
+        )}
+      </td>
+      {isStaff && (
+        <td className="px-4 py-3 text-right">
+          <div className="flex justify-end gap-3">
+            {request.status === "open" && (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() =>
+                  startTransition(async () => {
+                    await markOnlyfansRequestComplete(request.id);
+                    router.refresh();
+                  })
+                }
+                className="text-xs text-accent hover:underline disabled:opacity-50"
+              >
+                Complete
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() =>
+                startTransition(async () => {
+                  await deleteOnlyfansRequest(request.id);
+                  router.refresh();
+                })
+              }
+              className="text-xs text-danger hover:underline disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </div>
+        </td>
+      )}
+    </tr>
   );
 }

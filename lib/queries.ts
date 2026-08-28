@@ -134,7 +134,7 @@ export async function getOnlyfansRequests(creatorId: string): Promise<OnlyfansCo
     .from("onlyfans_content_requests")
     .select("*")
     .eq("creator_id", creatorId)
-    .order("logged_at", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data as OnlyfansContentRequest[];
 }

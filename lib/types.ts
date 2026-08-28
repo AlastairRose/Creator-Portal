@@ -76,21 +76,33 @@ export type Reel = {
   updated_at: string;
 };
 
-export type ContentRequestUrgency = "low" | "normal" | "high" | "urgent";
+// highly_requested -> 7-day due target. complete_when_possible -> 14-day.
+// not_required -> no due tag at all.
+export type ContentRequestUrgency = "highly_requested" | "complete_when_possible" | "not_required";
 
 export const CONTENT_REQUEST_URGENCY_LABELS: Record<ContentRequestUrgency, string> = {
-  low: "Low",
-  normal: "Normal",
-  high: "High",
-  urgent: "Urgent",
+  highly_requested: "Highly Requested",
+  complete_when_possible: "Complete when possible",
+  not_required: "Not required for now",
 };
 
+export type OnlyfansDueTag = "due_in_2_weeks" | "due_this_week" | "due_in_3_days" | "due_today" | "overdue";
+
+export const ONLYFANS_DUE_TAG_LABELS: Record<OnlyfansDueTag, string> = {
+  due_in_2_weeks: "Due in the next 2 weeks",
+  due_this_week: "Due this week",
+  due_in_3_days: "Due in 3 days",
+  due_today: "Due today",
+  overdue: "Overdue",
+};
+
+// Mirrors the founder's "Content Requests" Airtable base.
 export type OnlyfansContentRequest = {
   id: string;
   creator_id: string;
-  description: string;
-  logged_at: string; // YYYY-MM-DD
+  description: string; // "Content Required"
   urgency: ContentRequestUrgency;
+  urgency_set_at: string; // anchor the 7/14-day due target counts from
   status: "open" | "completed";
   completed_at: string | null;
   notes: string | null;
