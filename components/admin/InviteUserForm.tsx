@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { inviteUser, type UserFormState } from "@/lib/actions/users";
+import { inviteUser, linkExistingUser, type UserFormState } from "@/lib/actions/users";
 import type { Creator, Role } from "@/lib/types";
 
 const initialState: UserFormState = { error: null };
@@ -14,7 +14,9 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 ];
 
 export default function InviteUserForm({ creators }: { creators: Creator[] }) {
-  const [state, formAction, pending] = useActionState(inviteUser, initialState);
+  const [mode, setMode] = useState<"new" | "existing">("new");
+  const action = mode === "new" ? inviteUser : linkExistingUser;
+  const [state, formAction, pending] = useActionState(action, initialState);
   const [role, setRole] = useState<Role>("creator");
 
   return (
@@ -22,7 +24,25 @@ export default function InviteUserForm({ creators }: { creators: Creator[] }) {
       action={formAction}
       className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5"
     >
-      <h2 className="text-sm font-semibold">Invite someone</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">
+          {mode === "new" ? "Invite someone new" : "Link an existing account"}
+        </h2>
+        <button
+          type="button"
+          onClick={() => setMode(mode === "new" ? "existing" : "new")}
+          className="text-xs text-accent hover:underline"
+        >
+          {mode === "new" ? "This person already has a login →" : "← Create a new login instead"}
+        </button>
+      </div>
+      {mode === "existing" && (
+        <p className="text-xs text-muted">
+          For someone who already has a login for another of your apps sharing this database
+          (e.g. Outlier Engine) — this gives their existing account access here, instead of
+          creating a confusing second login for the same person.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
@@ -87,20 +107,22 @@ export default function InviteUserForm({ creators }: { creators: Creator[] }) {
             </select>
           </div>
         )}
-        <div className="flex flex-col gap-1.5 col-span-2">
-          <label htmlFor="temp_password" className="text-xs font-medium text-muted">
-            Temporary password
-          </label>
-          <input
-            id="temp_password"
-            name="temp_password"
-            type="text"
-            required
-            minLength={8}
-            placeholder="Share this with them directly — there's no invite email yet"
-            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
-          />
-        </div>
+        {mode === "new" && (
+          <div className="flex flex-col gap-1.5 col-span-2">
+            <label htmlFor="temp_password" className="text-xs font-medium text-muted">
+              Temporary password
+            </label>
+            <input
+              id="temp_password"
+              name="temp_password"
+              type="text"
+              required
+              minLength={8}
+              placeholder="Share this with them directly — there's no invite email yet"
+              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+        )}
       </div>
 
       {state.error && (
@@ -114,7 +136,7 @@ export default function InviteUserForm({ creators }: { creators: Creator[] }) {
         disabled={pending}
         className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {pending ? "Creating…" : "Create account"}
+        {pending ? "Saving…" : mode === "new" ? "Create account" : "Link account"}
       </button>
     </form>
   );
