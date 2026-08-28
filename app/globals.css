@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* Force dark theme always — this is an internal tool, no light mode. */
+:root {
+  --background: #0a0a0b;
+  --surface: #141416;
+  --surface-raised: #1c1c1f;
+  --border: #2a2a2e;
+  --foreground: #f4f4f5;
+  --muted: #9a9aa2;
+  --accent: #6366f1;
+
+  --danger: #ef4444;
+  --warning: #eab308;
+  --success: #22c55e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+* {
+  border-color: var(--border);
+}
+
+/* Report documents render inside the normal dark app chrome on screen, but
+   print as a plain white page with no sidebar/nav. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  .print-document {
+    color: #111111;
+  }
+}
