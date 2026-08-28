@@ -13,6 +13,8 @@ import type {
   Profile,
   RdIdea,
   Reel,
+  Report,
+  ReportPeriodType,
 } from "@/lib/types";
 
 export async function getProfiles(): Promise<Profile[]> {
@@ -151,6 +153,72 @@ export async function getOutstandingCustoms(creatorId: string): Promise<Outstand
     .order("requested_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data as OutstandingCustom[];
+}
+
+export async function getReports(creatorId: string): Promise<Report[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("creator_id", creatorId)
+    .order("period_start", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data as Report[];
+}
+
+export async function getReport(id: string): Promise<Report | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("reports").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Report | null;
+}
+
+// The most recent prior report of the same period_type, for computing %
+// revenue change — never stored, always derived at render time.
+export async function getPreviousReport(
+  creatorId: string,
+  periodType: ReportPeriodType,
+  beforePeriodStart: string
+): Promise<Report | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("creator_id", creatorId)
+    .eq("period_type", periodType)
+    .lt("period_start", beforePeriodStart)
+    .order("period_start", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Report | null;
+}
+
+// All reels planned for this creator across content_weeks whose week falls
+// inside [periodStart, periodEnd] — used to compute % reels completed.
+export async function getReelsForPeriod(
+  creatorId: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<Pick<Reel, "status">[]> {
+  const supabase = await createClient();
+  const { data: weeks, error: weeksError } = await supabase
+    .from("content_weeks")
+    .select("id")
+    .eq("creator_id", creatorId)
+    .gte("week_start_date", periodStart)
+    .lte("week_start_date", periodEnd);
+  if (weeksError) throw new Error(weeksError.message);
+
+  const weekIds = (weeks ?? []).map((w) => w.id);
+  if (weekIds.length === 0) return [];
+
+  const { data: reels, error: reelsError } = await supabase
+    .from("reels")
+    .select("status")
+    .in("content_week_id", weekIds);
+  if (reelsError) throw new Error(reelsError.message);
+  return (reels ?? []) as Pick<Reel, "status">[];
 }
 
 // Weekly planned/uploaded/posted/% complete for the given creators over the
