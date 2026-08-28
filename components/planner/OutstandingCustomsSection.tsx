@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
 import {
-  createOutstandingCustom,
   deleteOutstandingCustom,
   markCustomUploaded,
   setCustomStatus,
@@ -16,35 +15,19 @@ import DueStatusBadge from "./DueStatusBadge";
 import CustomFieldsForm from "./CustomFieldsForm";
 import ChatScreenshotThumbnail from "./ChatScreenshotThumbnail";
 
-const EMPTY_FIELDS: CustomFields = {
-  sub_username: null,
-  sub_name: null,
-  length_of_video_or_call: null,
-  custom_or_call: null,
-  outfit: null,
-  location: null,
-  description: "",
-  chat_link: null,
-  custom_price_agreed: null,
-  snapchat_handle: null,
-  due_by: null,
-};
-
 const STAFF_TABS: OutstandingCustomStatus[] = ["outstanding", "to_do_later", "uploaded", "sent"];
 
 export default function OutstandingCustomsSection({
-  creatorId,
   customs,
   isStaff,
 }: {
-  creatorId: string;
   customs: OutstandingCustom[];
   isStaff: boolean;
 }) {
   if (!isStaff) {
     return <CreatorCustomsList customs={customs.filter((c) => c.status === "outstanding")} />;
   }
-  return <StaffCustomsBoard creatorId={creatorId} customs={customs} />;
+  return <StaffCustomsBoard customs={customs} />;
 }
 
 function CreatorCustomsList({ customs }: { customs: OutstandingCustom[] }) {
@@ -100,30 +83,12 @@ function CreatorCustomsList({ customs }: { customs: OutstandingCustom[] }) {
   );
 }
 
-function StaffCustomsBoard({ creatorId, customs }: { creatorId: string; customs: OutstandingCustom[] }) {
-  const router = useRouter();
+function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
   const [tab, setTab] = useState<OutstandingCustomStatus>("outstanding");
   const [isPending, startTransition] = useTransition();
-  const [newFields, setNewFields] = useState<CustomFields>(EMPTY_FIELDS);
-  const [newScreenshotFile, setNewScreenshotFile] = useState<File | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const visible = customs.filter((c) => c.status === tab);
-
-  function handleAdd() {
-    if (!newFields.description.trim()) return;
-    startTransition(async () => {
-      await createOutstandingCustom(
-        creatorId,
-        newFields,
-        tab === "to_do_later" ? "to_do_later" : "outstanding",
-        newScreenshotFile
-      );
-      setNewFields(EMPTY_FIELDS);
-      setNewScreenshotFile(null);
-      router.refresh();
-    });
-  }
 
   return (
     <section className="flex flex-col gap-3">
@@ -204,25 +169,6 @@ function StaffCustomsBoard({ creatorId, customs }: { creatorId: string; customs:
           </tbody>
         </table>
       </div>
-
-      {(tab === "outstanding" || tab === "to_do_later") && (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-          <CustomFieldsForm
-            fields={newFields}
-            onChange={setNewFields}
-            disabled={isPending}
-            onScreenshotFileChange={setNewScreenshotFile}
-          />
-          <button
-            type="button"
-            disabled={isPending || !newFields.description.trim()}
-            onClick={handleAdd}
-            className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            Add to {OUTSTANDING_CUSTOM_STATUS_LABELS[tab]}
-          </button>
-        </div>
-      )}
     </section>
   );
 }

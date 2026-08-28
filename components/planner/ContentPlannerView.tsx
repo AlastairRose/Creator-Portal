@@ -65,7 +65,7 @@ export default function ContentPlannerView({
 
       <OnlyfansContentSection creatorId={creator.id} requests={onlyfansRequests} isStaff={isStaff} />
 
-      <OutstandingCustomsSection creatorId={creator.id} customs={outstandingCustoms} isStaff={isStaff} />
+      <OutstandingCustomsSection customs={outstandingCustoms} isStaff={isStaff} />
     </div>
   );
 }
