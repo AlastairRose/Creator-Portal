@@ -7,6 +7,19 @@ export type Creator = {
   archived: boolean;
 };
 
+export type DashboardWeekStats = {
+  weekStartDate: string;
+  planned: number;
+  uploaded: number;
+  posted: number;
+  percentComplete: number; // 0-100, uploaded-or-further / planned
+};
+
+export type DashboardCreatorRow = {
+  creator: Creator;
+  weeks: DashboardWeekStats[]; // oldest to newest, ends with the current week
+};
+
 export type Role = "owner" | "creative_director" | "editor" | "creator";
 
 export const STAFF_ROLES: Role[] = ["owner", "creative_director", "editor"];

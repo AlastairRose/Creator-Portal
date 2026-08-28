@@ -1,10 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listRecentWeeks } from "@/lib/weeks";
 import type {
   ContentWeek,
   Creator,
   CreatorPlan,
   CreatorSocialAccount,
+  DashboardCreatorRow,
+  DashboardWeekStats,
   OnlyfansContentRequest,
   OutstandingCustom,
   Profile,
@@ -148,4 +151,69 @@ export async function getOutstandingCustoms(creatorId: string): Promise<Outstand
     .order("requested_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data as OutstandingCustom[];
+}
+
+// Weekly planned/uploaded/posted/% complete for the given creators over the
+// last 3 weeks + current. RLS already scopes this correctly on its own — a
+// creator's session only ever sees their own published weeks regardless of
+// which creatorIds are passed in, so the same query works for both the
+// staff-wide table and a single creator's own view. Only published weeks
+// count (a week still being drafted in Creative Direction isn't a real
+// commitment yet).
+export async function getDashboardRows(creatorIds: string[]): Promise<DashboardCreatorRow[]> {
+  if (creatorIds.length === 0) return [];
+  const weeks = listRecentWeeks(4);
+  const supabase = await createClient();
+
+  const [{ data: creators, error: creatorsError }, { data: contentWeeks, error: weeksError }] =
+    await Promise.all([
+      supabase.from("creators").select("id, name, ig_handle, archived").in("id", creatorIds),
+      supabase
+        .from("content_weeks")
+        .select("id, creator_id, week_start_date")
+        .in("creator_id", creatorIds)
+        .in("week_start_date", weeks)
+        .eq("status", "published"),
+    ]);
+  if (creatorsError) throw new Error(creatorsError.message);
+  if (weeksError) throw new Error(weeksError.message);
+
+  const weekIds = (contentWeeks ?? []).map((w) => w.id);
+  const { data: reels, error: reelsError } =
+    weekIds.length > 0
+      ? await supabase.from("reels").select("content_week_id, status").in("content_week_id", weekIds)
+      : { data: [] as { content_week_id: string; status: string }[], error: null };
+  if (reelsError) throw new Error(reelsError.message);
+
+  const reelsByWeekId = new Map<string, { status: string }[]>();
+  for (const reel of reels ?? []) {
+    const list = reelsByWeekId.get(reel.content_week_id) ?? [];
+    list.push(reel);
+    reelsByWeekId.set(reel.content_week_id, list);
+  }
+
+  const contentWeekByCreatorAndWeek = new Map<string, { id: string }>();
+  for (const cw of contentWeeks ?? []) {
+    contentWeekByCreatorAndWeek.set(`${cw.creator_id}:${cw.week_start_date}`, cw);
+  }
+
+  return (creators ?? []).map((creator) => {
+    const weekStats: DashboardWeekStats[] = weeks.map((weekStartDate) => {
+      const contentWeek = contentWeekByCreatorAndWeek.get(`${creator.id}:${weekStartDate}`);
+      const weekReels = contentWeek ? reelsByWeekId.get(contentWeek.id) ?? [] : [];
+      const planned = weekReels.length;
+      const uploaded = weekReels.filter((r) =>
+        ["uploaded", "edited", "posted"].includes(r.status)
+      ).length;
+      const posted = weekReels.filter((r) => r.status === "posted").length;
+      return {
+        weekStartDate,
+        planned,
+        uploaded,
+        posted,
+        percentComplete: planned > 0 ? Math.round((uploaded / planned) * 100) : 0,
+      };
+    });
+    return { creator: creator as Creator, weeks: weekStats };
+  });
 }
