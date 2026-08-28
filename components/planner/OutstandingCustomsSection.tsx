@@ -115,9 +115,11 @@ function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
-              <th className="px-4 py-3 font-medium">Description</th>
-              <th className="px-4 py-3 font-medium">Sub</th>
-              <th className="px-4 py-3 font-medium">Due by</th>
+              <th className="px-4 py-3 font-medium">Date</th>
+              <th className="px-4 py-3 font-medium">Sub name</th>
+              <th className="px-4 py-3 font-medium">Price paid</th>
+              <th className="px-4 py-3 font-medium">Due date</th>
+              <th className="px-4 py-3 font-medium">Tag</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
@@ -127,23 +129,22 @@ function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
               return (
                 <Fragment key={custom.id}>
                   <tr className="border-t border-border">
+                    <td className="px-4 py-3 text-muted">
+                      {new Date(custom.requested_at).toLocaleDateString()}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
                         onClick={() => setExpandedId(isExpanded ? null : custom.id)}
-                        className="text-left hover:text-accent"
+                        className="text-left font-medium hover:text-accent"
                       >
-                        {custom.description.slice(0, 60)}
-                        {custom.description.length > 60 ? "…" : ""}
+                        {custom.sub_name ?? custom.sub_username ?? "—"}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-muted">{custom.sub_name ?? custom.sub_username ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted">{custom.custom_price_agreed ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted">{custom.due_by ?? "—"}</td>
                     <td className="px-4 py-3">
-                      {tab === "outstanding" ? (
-                        <DueStatusBadge custom={custom} />
-                      ) : (
-                        <span className="text-muted">{custom.due_by ?? "—"}</span>
-                      )}
+                      <DueStatusBadge custom={custom} />
                     </td>
                     <td className="px-4 py-3 text-right">
                       <StatusActions custom={custom} isPending={isPending} startTransition={startTransition} />
@@ -151,7 +152,7 @@ function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
                   </tr>
                   {isExpanded && (
                     <tr className="border-t border-border">
-                      <td colSpan={4} className="bg-background p-4">
+                      <td colSpan={6} className="bg-background p-4">
                         <EditableCustom custom={custom} />
                       </td>
                     </tr>
@@ -161,7 +162,7 @@ function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
             })}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-muted">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted">
                   Nothing here.
                 </td>
               </tr>
