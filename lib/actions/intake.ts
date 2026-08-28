@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadChatScreenshot } from "@/lib/storage";
+import { defaultDueBy } from "@/lib/customs";
 
 // Public, unauthenticated intake — the sales team submits this via a plain
 // shared link scoped to one creator, same as the old Airtable form. No
@@ -31,6 +32,8 @@ export async function submitOutstandingCustomIntake(
     }
   }
 
+  const requestedAt = new Date();
+
   const admin = createAdminClient();
   const { error } = await admin.from("outstanding_customs").insert({
     creator_id: creatorId,
@@ -46,7 +49,10 @@ export async function submitOutstandingCustomIntake(
     chat_link: field("chat_link"),
     custom_price_agreed: field("custom_price_agreed"),
     snapchat_handle: field("snapchat_handle"),
-    due_by: field("due_by"),
+    requested_at: requestedAt.toISOString(),
+    // Due date is automatic — 72 hours from submission — not something the
+    // sales team sets themselves.
+    due_by: defaultDueBy(requestedAt),
   });
   if (error) return { error: error.message, success: false };
 

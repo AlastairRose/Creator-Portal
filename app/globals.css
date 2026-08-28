@@ -12,6 +12,7 @@
 
   --danger: #ef4444;
   --warning: #eab308;
+  --orange: #f97316;
   --success: #22c55e;
 }
 
@@ -25,6 +26,7 @@
   --color-accent: var(--accent);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
+  --color-orange: var(--orange);
   --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

@@ -1,38 +1,37 @@
 import type { CustomUrgency, OutstandingCustom } from "@/lib/types";
 
-const DUE_SOON_HOURS = 72; // target turnaround
+const DUE_HOURS = 72; // target turnaround
 const OVERDUE_HOURS = 5 * 24; // hard max
-const DUE_BY_WARNING_HOURS = 24; // "due soon" window before an explicit due_by
 
-// Urgency for the "outstanding" bucket only — once a custom moves past that
-// (to_do_later/uploaded/sent) it no longer has an active urgency to show.
-// If staff have set an explicit `due_by` date (matching the Airtable field),
-// that takes priority; otherwise it falls back to the 72h/5d rule computed
-// from requested_at, so the badge is never blank just because no due date
-// was set.
+// Always computed from the precise requested_at timestamp, not the due_by
+// field — due_by is a DATE column (day precision only, shown to staff as a
+// reference/manual-override field), so basing the exact 72h/5d trigger on it
+// would drift by up to half a day depending on time of submission. This way
+// "DUE" flips at exactly 72 hours elapsed, "OVERDUE" at exactly 5 days.
 export function computeCustomUrgency(
-  custom: Pick<OutstandingCustom, "status" | "requested_at" | "due_by">
+  custom: Pick<OutstandingCustom, "status" | "requested_at">
 ): CustomUrgency | null {
   if (custom.status !== "outstanding") return null;
-
-  if (custom.due_by) {
-    const dueBy = new Date(`${custom.due_by}T23:59:59`).getTime();
-    const hoursUntilDue = (dueBy - Date.now()) / (1000 * 60 * 60);
-    if (hoursUntilDue < 0) return "overdue";
-    if (hoursUntilDue <= DUE_BY_WARNING_HOURS) return "due_soon";
-    return "on_track";
-  }
 
   const requestedAt = new Date(custom.requested_at).getTime();
   const hoursElapsed = (Date.now() - requestedAt) / (1000 * 60 * 60);
 
   if (hoursElapsed >= OVERDUE_HOURS) return "overdue";
-  if (hoursElapsed >= DUE_SOON_HOURS) return "due_soon";
+  if (hoursElapsed >= DUE_HOURS) return "due";
   return "on_track";
+}
+
+// requested_at isn't known yet at the moment a new custom is created (the DB
+// fills it via default now()), so this takes it as an explicit param rather
+// than reading it off a row. Day-precision only (due_by is a DATE column) —
+// used for the staff-facing reference field, not for the urgency badge.
+export function defaultDueBy(requestedAt: Date = new Date()): string {
+  const due = new Date(requestedAt.getTime() + DUE_HOURS * 60 * 60 * 1000);
+  return due.toISOString().slice(0, 10);
 }
 
 export const CUSTOM_URGENCY_LABELS: Record<CustomUrgency, string> = {
   on_track: "On track",
-  due_soon: "Due soon",
+  due: "Due",
   overdue: "Overdue",
 };

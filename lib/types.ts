@@ -137,7 +137,7 @@ export type OutstandingCustom = {
   updated_at: string;
 };
 
-export type CustomUrgency = "on_track" | "due_soon" | "overdue";
+export type CustomUrgency = "on_track" | "due" | "overdue";
 
 export type WinningIdea = {
   id: string;

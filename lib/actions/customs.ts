@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
 import { uploadChatScreenshot } from "@/lib/storage";
+import { defaultDueBy } from "@/lib/customs";
 import type { OutstandingCustomStatus } from "@/lib/types";
 
 export type CustomFields = {
@@ -47,13 +48,18 @@ export async function createOutstandingCustom(
   const chat_screenshot_path =
     screenshotFile && screenshotFile.size > 0 ? await uploadChatScreenshot(screenshotFile) : null;
 
+  const requestedAt = new Date();
+  const normalized = normalizeCustomFields(fields);
+
   const supabase = await createClient();
   const { error } = await supabase.from("outstanding_customs").insert({
     creator_id: creatorId,
     status,
     created_by: profile.id,
     chat_screenshot_path,
-    ...normalizeCustomFields(fields),
+    requested_at: requestedAt.toISOString(),
+    ...normalized,
+    due_by: normalized.due_by ?? defaultDueBy(requestedAt),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/planner");

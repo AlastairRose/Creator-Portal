@@ -71,10 +71,10 @@ export default function OutstandingCustomIntakeForm({ creatorId }: { creatorId: 
         <Field label="Snapchat (if required)">
           <input name="snapchat_handle" className={fieldClass} />
         </Field>
-        <Field label="Due by">
-          <input name="due_by" type="date" className={fieldClass} />
-        </Field>
       </div>
+      <p className="text-xs text-muted">
+        The due date is set automatically — 72 hours from when you submit this.
+      </p>
 
       {state.error && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
