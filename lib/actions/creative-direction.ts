@@ -58,8 +58,8 @@ function normalizeReelFields(fields: ReelDraftFields, requireAll: boolean) {
     if (missing.length > 0) {
       throw new Error(`Fill in every field before saving — missing: ${missing.join(", ")}.`);
     }
-  } else if (!fields.name.trim() || !fields.idea.trim()) {
-    throw new Error("Name and idea can't be empty.");
+  } else if (!fields.name.trim()) {
+    throw new Error("Name can't be empty.");
   }
   return {
     name: fields.name.trim(),

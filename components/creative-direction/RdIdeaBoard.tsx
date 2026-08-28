@@ -11,18 +11,40 @@ import {
 } from "@/lib/actions/rd-ideas";
 import { getNextWeekStart } from "@/lib/weeks";
 import WeekPicker from "@/components/shared/WeekPicker";
+import ReelFieldsForm from "@/components/shared/ReelFieldsForm";
+import type { ReelDraftFields } from "@/lib/actions/creative-direction";
 import type { Creator, RdIdea } from "@/lib/types";
 
+function toReelDraftFields(fields: RdIdeaFields): ReelDraftFields {
+  return {
+    name: fields.name,
+    idea: fields.idea,
+    inspo_link: fields.inspo_link,
+    required_shots: fields.required_shots,
+    hook: fields.hook,
+    outfit: fields.outfit,
+    location: fields.location,
+    filming_style: fields.filming_style,
+    editing_notes: fields.editing_notes,
+    posting_notes: fields.posting_notes,
+    vertical: fields.vertical,
+  };
+}
+
 const EMPTY_FIELDS: RdIdeaFields = {
-  title: "",
-  source_link: null,
-  notes: null,
+  name: "",
+  idea: "",
+  inspo_link: null,
+  required_shots: null,
+  hook: null,
+  outfit: null,
+  location: null,
+  filming_style: null,
+  editing_notes: null,
+  posting_notes: null,
   vertical: null,
   suitable_creator_ids: [],
 };
-
-const textFieldClass =
-  "w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-70";
 
 export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; creators: Creator[] }) {
   const router = useRouter();
@@ -32,7 +54,7 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
   const [filterCreatorId, setFilterCreatorId] = useState("");
 
   function handleAdd() {
-    if (!newFields.title.trim()) return;
+    if (!newFields.name.trim()) return;
     startTransition(async () => {
       await createRdIdea(newFields);
       setNewFields(EMPTY_FIELDS);
@@ -58,15 +80,16 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="text-sm font-semibold">Save a new idea</h2>
-        <IdeaFieldsForm fields={newFields} onChange={setNewFields} creators={creators} disabled={isPending} />
-        <button
-          type="button"
-          disabled={isPending || !newFields.title.trim()}
-          onClick={handleAdd}
-          className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          Save idea
-        </button>
+        <SuitableCreatorsForm fields={newFields} onChange={setNewFields} creators={creators} disabled={isPending}>
+          <button
+            type="button"
+            disabled={isPending || !newFields.name.trim()}
+            onClick={handleAdd}
+            className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            Save idea
+          </button>
+        </SuitableCreatorsForm>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -119,10 +142,11 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 font-medium">Title</th>
+                <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Vertical</th>
+                <th className="px-4 py-3 font-medium">Outfit</th>
+                <th className="px-4 py-3 font-medium">Location</th>
                 <th className="px-4 py-3 font-medium">Suitable creators</th>
-                <th className="px-4 py-3 font-medium">Source</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
@@ -132,7 +156,7 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
               ))}
               {filteredIdeas.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-muted">
+                  <td colSpan={6} className="px-4 py-6 text-center text-muted">
                     {ideas.length === 0 ? "No ideas saved yet." : "No ideas match those filters."}
                   </td>
                 </tr>
@@ -160,9 +184,16 @@ function IdeaRow({
   const [editing, setEditing] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [fields, setFields] = useState<RdIdeaFields>({
-    title: idea.title,
-    source_link: idea.source_link,
-    notes: idea.notes,
+    name: idea.name,
+    idea: idea.idea ?? "",
+    inspo_link: idea.inspo_link,
+    required_shots: idea.required_shots,
+    hook: idea.hook,
+    outfit: idea.outfit,
+    location: idea.location,
+    filming_style: idea.filming_style,
+    editing_notes: idea.editing_notes,
+    posting_notes: idea.posting_notes,
     vertical: idea.vertical,
     suitable_creator_ids: idea.suitable_creator_ids,
   });
@@ -190,11 +221,7 @@ function IdeaRow({
     if (!pushCreatorId) return;
     startTransition(async () => {
       try {
-        await pushRdIdeaToWeek(
-          { title: idea.title, notes: idea.notes, source_link: idea.source_link, vertical: idea.vertical },
-          pushCreatorId,
-          pushWeek
-        );
+        await pushRdIdeaToWeek(toReelDraftFields(fields), pushCreatorId, pushWeek);
         setPushError(null);
         setPushed(true);
         setTimeout(() => setPushed(false), 2500);
@@ -211,27 +238,14 @@ function IdeaRow({
         onClick={() => setExpanded(!expanded)}
         className="cursor-pointer border-t border-border hover:bg-surface-raised"
       >
-        <td className="px-4 py-3 font-medium">{idea.title}</td>
+        <td className="px-4 py-3 font-medium">{idea.name}</td>
         <td className="px-4 py-3 text-muted">{idea.vertical || "—"}</td>
+        <td className="px-4 py-3 text-muted">{idea.outfit || "—"}</td>
+        <td className="px-4 py-3 text-muted">{idea.location || "—"}</td>
         <td className="px-4 py-3 text-muted">
           {idea.suitable_creator_ids.length > 0
             ? idea.suitable_creator_ids.map((id) => creatorNameById.get(id) ?? "Unknown").join(", ")
             : "—"}
-        </td>
-        <td className="px-4 py-3">
-          {idea.source_link ? (
-            <a
-              href={idea.source_link}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-accent hover:underline"
-            >
-              Link
-            </a>
-          ) : (
-            "—"
-          )}
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex justify-end gap-3 text-xs">
@@ -262,10 +276,9 @@ function IdeaRow({
       </tr>
       {expanded && (
         <tr className="border-t border-border">
-          <td colSpan={5} className="bg-background p-4">
+          <td colSpan={6} className="bg-background p-4">
             {editing ? (
-              <div className="flex flex-col gap-3">
-                <IdeaFieldsForm fields={fields} onChange={setFields} creators={creators} disabled={isPending} />
+              <SuitableCreatorsForm fields={fields} onChange={setFields} creators={creators} disabled={isPending}>
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -283,10 +296,10 @@ function IdeaRow({
                     Cancel
                   </button>
                 </div>
-              </div>
+              </SuitableCreatorsForm>
             ) : (
               <div className="flex flex-col gap-3">
-                {idea.notes && <p className="text-sm text-muted">{idea.notes}</p>}
+                <ReelDetail idea={idea} />
 
                 {!pushing && !pushed && (
                   <button
@@ -346,89 +359,79 @@ function IdeaRow({
   );
 }
 
-function IdeaFieldsForm({
+function ReelDetail({ idea }: { idea: RdIdea }) {
+  const rows: [string, string | null][] = [
+    ["Idea", idea.idea],
+    ["Inspo link", idea.inspo_link],
+    ["Required shots", idea.required_shots],
+    ["Hook", idea.hook],
+    ["Filming style", idea.filming_style],
+    ["Editing notes", idea.editing_notes],
+    ["Posting notes", idea.posting_notes],
+  ];
+
+  return (
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-xs font-medium text-muted">{label}</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap">{value || "—"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// Wraps the shared reel-fields form with the R&D-only "suitable creators"
+// checkbox list and whatever footer the caller needs (save/add button).
+function SuitableCreatorsForm({
   fields,
   onChange,
   creators,
   disabled,
+  children,
 }: {
   fields: RdIdeaFields;
   onChange: (fields: RdIdeaFields) => void;
   creators: Creator[];
   disabled?: boolean;
+  children?: React.ReactNode;
 }) {
-  function set<K extends keyof RdIdeaFields>(key: K, value: RdIdeaFields[K]) {
-    onChange({ ...fields, [key]: value });
-  }
-
   function toggleCreator(id: string, checked: boolean) {
-    set(
-      "suitable_creator_ids",
-      checked
+    onChange({
+      ...fields,
+      suitable_creator_ids: checked
         ? [...fields.suitable_creator_ids, id]
-        : fields.suitable_creator_ids.filter((c) => c !== id)
-    );
+        : fields.suitable_creator_ids.filter((c) => c !== id),
+    });
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="col-span-2 flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Title</label>
-        <input
-          value={fields.title}
-          onChange={(e) => set("title", e.target.value)}
-          disabled={disabled}
-          placeholder="Short label for this idea"
-          className={textFieldClass}
-        />
-      </div>
-      <div className="col-span-2 flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Source link</label>
-        <input
-          value={fields.source_link ?? ""}
-          onChange={(e) => set("source_link", e.target.value)}
-          disabled={disabled}
-          placeholder="Link to the reel/post"
-          className={textFieldClass}
-        />
-      </div>
-      <div className="col-span-2 flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Notes</label>
-        <textarea
-          value={fields.notes ?? ""}
-          onChange={(e) => set("notes", e.target.value)}
-          disabled={disabled}
-          rows={2}
-          placeholder="Why it's good, how to adapt it"
-          className={textFieldClass}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Vertical</label>
-        <input
-          value={fields.vertical ?? ""}
-          onChange={(e) => set("vertical", e.target.value)}
-          disabled={disabled}
-          placeholder="e.g. Skit, Snapchat, Fundamental, Talking Head etc."
-          className={textFieldClass}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Suitable creators (select any number)</label>
-        <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-raised p-2">
-          {creators.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-surface">
-              <input
-                type="checkbox"
-                checked={fields.suitable_creator_ids.includes(c.id)}
-                disabled={disabled}
-                onChange={(e) => toggleCreator(c.id, e.target.checked)}
-              />
-              {c.name}
-            </label>
-          ))}
+    <ReelFieldsForm
+      fields={fields}
+      onChange={(next) => onChange({ ...fields, ...next })}
+      disabled={disabled ?? false}
+      footer={
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">Suitable creators (select any number)</label>
+            <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-raised p-2">
+              {creators.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-surface">
+                  <input
+                    type="checkbox"
+                    checked={fields.suitable_creator_ids.includes(c.id)}
+                    disabled={disabled}
+                    onChange={(e) => toggleCreator(c.id, e.target.checked)}
+                  />
+                  {c.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          {children}
         </div>
-      </div>
-    </div>
+      }
+    />
   );
 }

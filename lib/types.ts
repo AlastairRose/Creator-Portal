@@ -175,11 +175,20 @@ export type WinningIdea = {
   updated_at: string;
 };
 
+// Mirrors Reel's fields exactly (minus status/scheduling), so pushing an
+// idea to a creator's plan carries everything across, not just a subset.
 export type RdIdea = {
   id: string;
-  title: string;
-  source_link: string | null;
-  notes: string | null;
+  name: string;
+  idea: string | null;
+  inspo_link: string | null;
+  required_shots: string | null;
+  hook: string | null;
+  outfit: string | null;
+  location: string | null;
+  filming_style: string | null;
+  editing_notes: string | null;
+  posting_notes: string | null;
   vertical: string | null;
   suitable_creator_ids: string[];
   added_by: string | null;
