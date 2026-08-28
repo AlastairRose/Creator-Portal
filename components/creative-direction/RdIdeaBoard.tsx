@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   createRdIdea,
   deleteRdIdea,
@@ -28,6 +28,8 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newFields, setNewFields] = useState<RdIdeaFields>(EMPTY_FIELDS);
+  const [filterVertical, setFilterVertical] = useState("");
+  const [filterCreatorId, setFilterCreatorId] = useState("");
 
   function handleAdd() {
     if (!newFields.title.trim()) return;
@@ -39,6 +41,18 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
   }
 
   const creatorNameById = new Map(creators.map((c) => [c.id, c.name]));
+
+  const verticals = useMemo(
+    () =>
+      Array.from(new Set(ideas.map((i) => i.vertical).filter((v): v is string => Boolean(v)))).sort(),
+    [ideas]
+  );
+
+  const filteredIdeas = ideas.filter((idea) => {
+    if (filterVertical && idea.vertical !== filterVertical) return false;
+    if (filterCreatorId && !idea.suitable_creator_ids.includes(filterCreatorId)) return false;
+    return true;
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,20 +70,82 @@ export default function RdIdeaBoard({ ideas, creators }: { ideas: RdIdea[]; crea
       </div>
 
       <div className="flex flex-col gap-3">
-        {ideas.map((idea) => (
-          <IdeaCard key={idea.id} idea={idea} creators={creators} creatorNameById={creatorNameById} />
-        ))}
-        {ideas.length === 0 && (
-          <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
-            No ideas saved yet.
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">Filter by vertical</label>
+            <select
+              value={filterVertical}
+              onChange={(e) => setFilterVertical(e.target.value)}
+              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              <option value="">All verticals</option>
+              {verticals.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">Filter by suitable creator</label>
+            <select
+              value={filterCreatorId}
+              onChange={(e) => setFilterCreatorId(e.target.value)}
+              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              <option value="">All creators</option>
+              {creators.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {(filterVertical || filterCreatorId) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterVertical("");
+                setFilterCreatorId("");
+              }}
+              className="text-xs text-muted hover:text-foreground"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
+                <th className="px-4 py-3 font-medium">Title</th>
+                <th className="px-4 py-3 font-medium">Vertical</th>
+                <th className="px-4 py-3 font-medium">Suitable creators</th>
+                <th className="px-4 py-3 font-medium">Source</th>
+                <th className="px-4 py-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredIdeas.map((idea) => (
+                <IdeaRow key={idea.id} idea={idea} creators={creators} creatorNameById={creatorNameById} />
+              ))}
+              {filteredIdeas.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-muted">
+                    {ideas.length === 0 ? "No ideas saved yet." : "No ideas match those filters."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-function IdeaCard({
+function IdeaRow({
   idea,
   creators,
   creatorNameById,
@@ -80,6 +156,7 @@ function IdeaCard({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [fields, setFields] = useState<RdIdeaFields>({
@@ -128,112 +205,144 @@ function IdeaCard({
     });
   }
 
-  if (editing) {
-    return (
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <IdeaFieldsForm fields={fields} onChange={setFields} creators={creators} disabled={isPending} />
-        <div className="flex gap-3">
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={save}
-            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="text-sm text-muted hover:text-foreground"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-medium">{idea.title}</p>
-          {idea.notes && <p className="mt-1 text-sm text-muted">{idea.notes}</p>}
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted">
-            {idea.vertical && <span className="rounded-full bg-surface-raised px-2.5 py-1">{idea.vertical}</span>}
-            {idea.suitable_creator_ids.map((id) => (
-              <span key={id} className="rounded-full bg-surface-raised px-2.5 py-1">
-                {creatorNameById.get(id) ?? "Unknown creator"}
-              </span>
-            ))}
-          </div>
-          {idea.source_link && (
+    <Fragment>
+      <tr
+        onClick={() => setExpanded(!expanded)}
+        className="cursor-pointer border-t border-border hover:bg-surface-raised"
+      >
+        <td className="px-4 py-3 font-medium">{idea.title}</td>
+        <td className="px-4 py-3 text-muted">{idea.vertical || "—"}</td>
+        <td className="px-4 py-3 text-muted">
+          {idea.suitable_creator_ids.length > 0
+            ? idea.suitable_creator_ids.map((id) => creatorNameById.get(id) ?? "Unknown").join(", ")
+            : "—"}
+        </td>
+        <td className="px-4 py-3">
+          {idea.source_link ? (
             <a
               href={idea.source_link}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-block text-xs text-accent hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              className="text-accent hover:underline"
             >
-              View source
+              Link
             </a>
+          ) : (
+            "—"
           )}
-        </div>
-        <div className="flex shrink-0 gap-3 text-xs">
-          <button type="button" onClick={() => setEditing(true)} className="text-muted hover:text-foreground">
-            Edit
-          </button>
-          <button type="button" disabled={isPending} onClick={remove} className="text-danger hover:underline disabled:opacity-50">
-            Delete
-          </button>
-        </div>
-      </div>
-
-      {!pushing && !pushed && (
-        <button
-          type="button"
-          onClick={() => setPushing(true)}
-          className="self-start rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground"
-        >
-          Add to a creator&apos;s plan
-        </button>
-      )}
-      {pushed && <p className="text-xs text-success">Added to the plan as a draft reel.</p>}
-
-      {pushing && (
-        <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface-raised p-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted">Creator</label>
-            <select
-              value={pushCreatorId}
-              onChange={(e) => setPushCreatorId(e.target.value)}
-              className="rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+        </td>
+        <td className="px-4 py-3 text-right">
+          <div className="flex justify-end gap-3 text-xs">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditing(!editing);
+                setExpanded(true);
+              }}
+              className="text-muted hover:text-foreground"
             >
-              {creators.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={(e) => {
+                e.stopPropagation();
+                remove();
+              }}
+              className="text-danger hover:underline disabled:opacity-50"
+            >
+              Delete
+            </button>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted">Week</label>
-            <WeekPicker weekStartDate={pushWeek} onChange={setPushWeek} />
-          </div>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={confirmPush}
-            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            Add
-          </button>
-          <button type="button" onClick={() => setPushing(false)} className="text-xs text-muted hover:text-foreground">
-            Cancel
-          </button>
-          {pushError && <p className="w-full text-xs text-danger">{pushError}</p>}
-        </div>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="border-t border-border">
+          <td colSpan={5} className="bg-background p-4">
+            {editing ? (
+              <div className="flex flex-col gap-3">
+                <IdeaFieldsForm fields={fields} onChange={setFields} creators={creators} disabled={isPending} />
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={save}
+                    className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="text-sm text-muted hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {idea.notes && <p className="text-sm text-muted">{idea.notes}</p>}
+
+                {!pushing && !pushed && (
+                  <button
+                    type="button"
+                    onClick={() => setPushing(true)}
+                    className="self-start rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground"
+                  >
+                    Add to a creator&apos;s plan
+                  </button>
+                )}
+                {pushed && <p className="text-xs text-success">Added to the plan as a draft reel.</p>}
+
+                {pushing && (
+                  <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface-raised p-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-muted">Creator</label>
+                      <select
+                        value={pushCreatorId}
+                        onChange={(e) => setPushCreatorId(e.target.value)}
+                        className="rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                      >
+                        {creators.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-muted">Week</label>
+                      <WeekPicker weekStartDate={pushWeek} onChange={setPushWeek} />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={confirmPush}
+                      className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPushing(false)}
+                      className="text-xs text-muted hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                    {pushError && <p className="w-full text-xs text-danger">{pushError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
       )}
-    </div>
+    </Fragment>
   );
 }
 
