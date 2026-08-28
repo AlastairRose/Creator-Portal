@@ -248,28 +248,18 @@ function IdeaFieldsForm({
   creators: Creator[];
   disabled?: boolean;
 }) {
-  const [newCreatorId, setNewCreatorId] = useState("");
-
   function set<K extends keyof RdIdeaFields>(key: K, value: RdIdeaFields[K]) {
     onChange({ ...fields, [key]: value });
   }
 
-  const availableCreators = creators.filter((c) => !fields.suitable_creator_ids.includes(c.id));
-
-  function addCreator() {
-    if (!newCreatorId) return;
-    set("suitable_creator_ids", [...fields.suitable_creator_ids, newCreatorId]);
-    setNewCreatorId("");
-  }
-
-  function removeCreator(id: string) {
+  function toggleCreator(id: string, checked: boolean) {
     set(
       "suitable_creator_ids",
-      fields.suitable_creator_ids.filter((c) => c !== id)
+      checked
+        ? [...fields.suitable_creator_ids, id]
+        : fields.suitable_creator_ids.filter((c) => c !== id)
     );
   }
-
-  const creatorNameById = new Map(creators.map((c) => [c.id, c.name]));
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -315,45 +305,19 @@ function IdeaFieldsForm({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Suitable creators</label>
-        <div className="flex flex-wrap gap-2">
-          {fields.suitable_creator_ids.map((id) => (
-            <span key={id} className="flex items-center gap-1.5 rounded-full bg-surface-raised px-2.5 py-1 text-xs">
-              {creatorNameById.get(id) ?? "Unknown"}
-              <button
-                type="button"
+        <label className="text-xs font-medium text-muted">Suitable creators (select any number)</label>
+        <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-raised p-2">
+          {creators.map((c) => (
+            <label key={c.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-surface">
+              <input
+                type="checkbox"
+                checked={fields.suitable_creator_ids.includes(c.id)}
                 disabled={disabled}
-                onClick={() => removeCreator(id)}
-                className="text-muted hover:text-danger disabled:opacity-50"
-                aria-label="Remove"
-              >
-                ×
-              </button>
-            </span>
+                onChange={(e) => toggleCreator(c.id, e.target.checked)}
+              />
+              {c.name}
+            </label>
           ))}
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={newCreatorId}
-            onChange={(e) => setNewCreatorId(e.target.value)}
-            disabled={disabled}
-            className={textFieldClass}
-          >
-            <option value="">Select a creator…</option>
-            {availableCreators.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={disabled || !newCreatorId}
-            onClick={addCreator}
-            className="shrink-0 rounded-md border border-border px-3 py-2 text-sm text-muted hover:text-foreground disabled:opacity-50"
-          >
-            Add
-          </button>
         </div>
       </div>
     </div>
