@@ -1,5 +1,6 @@
-import { getCreators, getCreatorPlan } from "@/lib/queries";
+import { getCreators, getCreatorPlan, getCreatorSocialAccounts } from "@/lib/queries";
 import OverallPlanCard from "@/components/creative-direction/OverallPlanCard";
+import AccountsSection from "@/components/creative-direction/AccountsSection";
 
 export default async function OverallPlanPage({
   searchParams,
@@ -14,7 +15,15 @@ export default async function OverallPlanPage({
     return <p className="text-sm text-muted">Add a creator first.</p>;
   }
 
-  const plan = await getCreatorPlan(creator.id);
+  const [plan, socialAccounts] = await Promise.all([
+    getCreatorPlan(creator.id),
+    getCreatorSocialAccounts(creator.id),
+  ]);
 
-  return <OverallPlanCard creator={creator} plan={plan} />;
+  return (
+    <div className="flex flex-col gap-6">
+      <OverallPlanCard creator={creator} plan={plan} />
+      <AccountsSection creatorId={creator.id} accounts={socialAccounts} />
+    </div>
+  );
 }

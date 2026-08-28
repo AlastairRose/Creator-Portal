@@ -4,6 +4,7 @@ import type {
   ContentWeek,
   Creator,
   CreatorPlan,
+  CreatorSocialAccount,
   OnlyfansContentRequest,
   OutstandingCustom,
   Profile,
@@ -93,6 +94,16 @@ export async function getReelsForWeek(contentWeekId: string): Promise<Reel[]> {
     .order("sort_order", { ascending: true });
   if (error) throw new Error(error.message);
   return data as Reel[];
+}
+
+export async function getCreatorSocialAccounts(creatorId: string): Promise<CreatorSocialAccount[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("creator_social_accounts")
+    .select("*")
+    .eq("creator_id", creatorId);
+  if (error) throw new Error(error.message);
+  return data as CreatorSocialAccount[];
 }
 
 export async function getCreatorPlan(creatorId: string): Promise<CreatorPlan | null> {

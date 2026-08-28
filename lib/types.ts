@@ -150,6 +150,37 @@ export type WinningIdea = {
   updated_at: string;
 };
 
+export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "twitter" | "youtube";
+
+export const SOCIAL_PLATFORMS: SocialPlatform[] = [
+  "instagram",
+  "facebook",
+  "tiktok",
+  "twitter",
+  "youtube",
+];
+
+export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  twitter: "Twitter (X)",
+  youtube: "YouTube",
+};
+
+export type SocialAccountManagedBy = "autoposter" | "account_manager";
+
+export type CreatorSocialAccount = {
+  id: string;
+  creator_id: string;
+  platform: SocialPlatform;
+  is_active: boolean;
+  managed_by: SocialAccountManagedBy | null;
+  profile_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CreatorPlan = {
   creator_id: string;
   agreed_reels_per_week: number | null;
