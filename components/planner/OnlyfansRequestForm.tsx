@@ -10,12 +10,21 @@ import type { OnlyfansRequestFields, OnlyfansSextingItemFields } from "@/lib/act
 
 const CONTENT_TYPES: OnlyfansContentType[] = ["sexting", "ppv", "wall_posts", "voice_notes", "day_to_day", "other"];
 const URGENCIES: ContentRequestUrgency[] = ["highly_requested", "complete_when_possible", "not_required"];
+const SEXTING_CONTENT_LABELS = ["Picture", "Video", "Voice Note", "Message"] as const;
 
 const textFieldClass =
   "w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-70";
 
 function emptyItem(): OnlyfansSextingItemFields {
   return { content_label: "", description: null, length: null, creator_required: false };
+}
+
+// Message is something staff handle directly, never a creator task; Picture/
+// Video/Voice Note are things the creator produces. This is only ever a
+// default applied when the dropdown changes — the tick box stays editable
+// afterward so staff can still override it.
+function defaultCreatorRequiredForLabel(label: string): boolean {
+  return label !== "Message" && label !== "";
 }
 
 export function defaultOnlyfansRequestFields(existing?: OnlyfansContentRequestWithItems): OnlyfansRequestFields {
@@ -152,12 +161,24 @@ export default function OnlyfansRequestForm({
                   {fields.sexting_items.map((item, index) => (
                     <tr key={index} className="border-t border-border">
                       <td className="px-3 py-2">
-                        <input
+                        <select
                           value={item.content_label}
-                          onChange={(e) => setItem(index, { content_label: e.target.value })}
+                          onChange={(e) => {
+                            const label = e.target.value;
+                            setItem(index, { content_label: label, creator_required: defaultCreatorRequiredForLabel(label) });
+                          }}
                           disabled={isPending}
                           className={textFieldClass}
-                        />
+                        >
+                          <option value="" disabled>
+                            Select…
+                          </option>
+                          {SEXTING_CONTENT_LABELS.map((label) => (
+                            <option key={label} value={label}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-3 py-2 text-center">
                         <input
