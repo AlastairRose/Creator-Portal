@@ -23,7 +23,7 @@ export default async function OverallPlanPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <OverallPlanCard creator={creator} plan={plan} driveLinks={driveLinks} />
+      <OverallPlanCard key={creator.id} creator={creator} plan={plan} driveLinks={driveLinks} />
       <AccountsSection creatorId={creator.id} accounts={socialAccounts} />
     </div>
   );
