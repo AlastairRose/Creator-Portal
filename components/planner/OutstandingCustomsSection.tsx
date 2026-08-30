@@ -55,9 +55,6 @@ function CreatorCustomsList({
   isStaff: boolean;
   customs: OutstandingCustom[];
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -77,42 +74,73 @@ function CreatorCustomsList({
       ) : (
         <div className="flex flex-col gap-3">
           {customs.map((custom) => (
-            <div key={custom.id} className="rounded-lg border border-border bg-surface p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
-                  <ChatScreenshotThumbnail path={custom.chat_screenshot_path} />
-                  <div>
-                    <p className="text-sm">{custom.description}</p>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted">
-                      {custom.length_of_video_or_call && <div>Length: {custom.length_of_video_or_call}</div>}
-                      {custom.outfit && <div>Outfit: {custom.outfit}</div>}
-                      {custom.location && <div>Location: {custom.location}</div>}
-                      {custom.due_by && <div>Due by: {custom.due_by}</div>}
-                    </dl>
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  <DueStatusBadge custom={custom} />
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() =>
-                      startTransition(async () => {
-                        await markCustomUploaded(custom.id);
-                        router.refresh();
-                      })
-                    }
-                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    Mark uploaded
-                  </button>
-                </div>
-              </div>
-            </div>
+            <CreatorCustomCard key={custom.id} custom={custom} />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function CreatorCustomCard({ custom }: { custom: OutstandingCustom }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
+  const name = custom.sub_name ?? custom.sub_username ?? "—";
+
+  function markUploaded() {
+    startTransition(async () => {
+      await markCustomUploaded(custom.id);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-sm font-medium">{name}</p>
+          <button
+            type="button"
+            onClick={() => setShowMoreInfo(true)}
+            className="text-xs text-accent hover:underline"
+          >
+            More info
+          </button>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+          <p className="text-sm">{custom.custom_price_agreed || "—"}</p>
+          <p className="text-xs text-muted">{custom.due_by ? `Due ${custom.due_by}` : "No due date"}</p>
+          <DueStatusBadge custom={custom} />
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={markUploaded}
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Mark uploaded
+          </button>
+        </div>
+      </div>
+
+      {showMoreInfo && (
+        <Modal title={name} onClose={() => setShowMoreInfo(false)}>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3">
+              <ChatScreenshotThumbnail path={custom.chat_screenshot_path} />
+              <div>
+                <p className="text-sm">{custom.description || "—"}</p>
+                <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted">
+                  {custom.length_of_video_or_call && <div>Length: {custom.length_of_video_or_call}</div>}
+                  {custom.outfit && <div>Outfit: {custom.outfit}</div>}
+                  {custom.location && <div>Location: {custom.location}</div>}
+                </dl>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }
 
