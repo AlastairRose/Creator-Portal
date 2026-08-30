@@ -1,5 +1,5 @@
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
-import { getCreators, getOnlyfansRequests, getCreatorDriveLinks } from "@/lib/queries";
+import { getCreators, getCreator, getOnlyfansRequests, getCreatorDriveLinks } from "@/lib/queries";
 import OnlyfansContentSection from "@/components/planner/OnlyfansContentSection";
 import type { OnlyfansContentRequestWithItems } from "@/lib/types";
 
@@ -7,11 +7,16 @@ function highlyRequestedOpen(requests: OnlyfansContentRequestWithItems[]) {
   return requests.filter((r) => r.urgency === "highly_requested" && r.status === "open");
 }
 
-export default async function OnlyfansContentPage() {
+export default async function OnlyfansContentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ creatorId?: string }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile) return null;
 
   const isStaff = isStaffRole(profile.role);
+  const { creatorId } = await searchParams;
 
   if (!isStaff) {
     if (!profile.creator_id) {
@@ -32,6 +37,29 @@ export default async function OnlyfansContentPage() {
           requests={highlyRequestedOpen(requests)}
           driveLink={driveLinks?.onlyfans_drive_link ?? null}
           isStaff={false}
+        />
+      </div>
+    );
+  }
+
+  if (creatorId) {
+    const creator = await getCreator(creatorId);
+    if (!creator) return <p className="text-sm text-muted">Creator not found.</p>;
+    const [requests, driveLinks] = await Promise.all([
+      getOnlyfansRequests(creatorId),
+      getCreatorDriveLinks(creatorId),
+    ]);
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Highly Requested OnlyFans Content — {creator.name}</h1>
+        </div>
+        <OnlyfansContentSection
+          creatorId={creatorId}
+          requests={highlyRequestedOpen(requests)}
+          driveLink={driveLinks?.onlyfans_drive_link ?? null}
+          isStaff
         />
       </div>
     );

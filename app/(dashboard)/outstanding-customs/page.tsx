@@ -1,12 +1,17 @@
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
-import { getCreators, getOutstandingCustoms, getCreatorDriveLinks } from "@/lib/queries";
+import { getCreators, getCreator, getOutstandingCustoms, getCreatorDriveLinks } from "@/lib/queries";
 import OutstandingCustomsSection from "@/components/planner/OutstandingCustomsSection";
 
-export default async function OutstandingCustomsPage() {
+export default async function OutstandingCustomsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ creatorId?: string }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile) return null;
 
   const isStaff = isStaffRole(profile.role);
+  const { creatorId } = await searchParams;
 
   if (!isStaff) {
     if (!profile.creator_id) {
@@ -27,6 +32,29 @@ export default async function OutstandingCustomsPage() {
           customs={customs}
           driveLink={driveLinks?.customs_drive_link ?? null}
           isStaff={false}
+        />
+      </div>
+    );
+  }
+
+  if (creatorId) {
+    const creator = await getCreator(creatorId);
+    if (!creator) return <p className="text-sm text-muted">Creator not found.</p>;
+    const [customs, driveLinks] = await Promise.all([
+      getOutstandingCustoms(creatorId),
+      getCreatorDriveLinks(creatorId),
+    ]);
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Outstanding Customs — {creator.name}</h1>
+        </div>
+        <OutstandingCustomsSection
+          creatorId={creatorId}
+          customs={customs}
+          driveLink={driveLinks?.customs_drive_link ?? null}
+          isStaff
         />
       </div>
     );

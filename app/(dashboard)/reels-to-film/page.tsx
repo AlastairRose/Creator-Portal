@@ -1,15 +1,20 @@
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
-import { getCreators, getContentWeek, getReelsForWeek } from "@/lib/queries";
+import { getCreators, getCreator, getContentWeek, getReelsForWeek } from "@/lib/queries";
 import { getCurrentWeekStart } from "@/lib/weeks";
 import ReelsToFilmSection from "@/components/planner/ReelsToFilmSection";
 import DriveUploadButton from "@/components/shared/DriveUploadButton";
 
-export default async function ReelsToFilmPage() {
+export default async function ReelsToFilmPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ creatorId?: string }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile) return null;
 
   const weekStartDate = getCurrentWeekStart();
   const isStaff = isStaffRole(profile.role);
+  const { creatorId } = await searchParams;
 
   if (!isStaff) {
     if (!profile.creator_id) {
@@ -26,6 +31,24 @@ export default async function ReelsToFilmPage() {
         </div>
         {contentWeek?.drive_link && <DriveUploadButton href={contentWeek.drive_link} label="Upload Reels Here" />}
         <ReelsToFilmSection reels={reels} isStaff={false} />
+      </div>
+    );
+  }
+
+  if (creatorId) {
+    const creator = await getCreator(creatorId);
+    if (!creator) return <p className="text-sm text-muted">Creator not found.</p>;
+    const contentWeek = await getContentWeek(creatorId, weekStartDate);
+    const reels = contentWeek ? await getReelsForWeek(contentWeek.id) : [];
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Reels to Film — {creator.name}</h1>
+          <p className="mt-1 text-sm text-muted">This week&apos;s planned reels.</p>
+        </div>
+        {contentWeek?.drive_link && <DriveUploadButton href={contentWeek.drive_link} label="Upload Reels Here" />}
+        <ReelsToFilmSection reels={reels} isStaff />
       </div>
     );
   }

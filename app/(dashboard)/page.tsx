@@ -10,6 +10,7 @@ import {
 import { getCurrentWeekStart } from "@/lib/weeks";
 import WeeklyScoreTable from "@/components/dashboard/WeeklyScoreTable";
 import QuickSummaryCards from "@/components/dashboard/QuickSummaryCards";
+import StaffQuickSummaryCards from "@/components/dashboard/StaffQuickSummaryCards";
 
 async function getCreatorSummaryCounts(creatorId: string) {
   const weekStartDate = getCurrentWeekStart();
@@ -40,14 +41,7 @@ export default async function DashboardPage() {
       Promise.all(creators.map((c) => getCreatorSummaryCounts(c.id))),
     ]);
 
-    const totals = counts.reduce(
-      (acc, c) => ({
-        reelsToFilmCount: acc.reelsToFilmCount + c.reelsToFilmCount,
-        outstandingCustomsCount: acc.outstandingCustomsCount + c.outstandingCustomsCount,
-        highlyRequestedCount: acc.highlyRequestedCount + c.highlyRequestedCount,
-      }),
-      { reelsToFilmCount: 0, outstandingCustomsCount: 0, highlyRequestedCount: 0 }
-    );
+    const countsByCreatorId = Object.fromEntries(creators.map((c, i) => [c.id, counts[i]]));
 
     return (
       <div className="flex flex-col gap-6">
@@ -57,7 +51,7 @@ export default async function DashboardPage() {
             Weekly performance across every creator — last 3 weeks plus the current week.
           </p>
         </div>
-        <QuickSummaryCards {...totals} />
+        <StaffQuickSummaryCards creators={creators} countsByCreatorId={countsByCreatorId} />
         <WeeklyScoreTable rows={rows} />
       </div>
     );
