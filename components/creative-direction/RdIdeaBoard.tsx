@@ -375,7 +375,15 @@ function ReelDetail({ idea }: { idea: RdIdea }) {
       {rows.map(([label, value]) => (
         <div key={label}>
           <dt className="text-xs font-medium text-muted">{label}</dt>
-          <dd className="mt-0.5 whitespace-pre-wrap">{value || "—"}</dd>
+          <dd className="mt-0.5 whitespace-pre-wrap">
+            {label === "Inspo link" && value ? (
+              <a href={value} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                {value}
+              </a>
+            ) : (
+              value || "—"
+            )}
+          </dd>
         </div>
       ))}
     </dl>
