@@ -55,6 +55,7 @@ export default function OnlyfansContentSection({
         <h2 className="text-sm font-semibold">Onlyfans Content</h2>
         <CreatorDriveLinkField
           label="Google Drive upload link"
+          buttonLabel="Upload OF Content Here"
           initialLink={driveLink}
           isStaff={isStaff}
           onSave={(value) => updateOnlyfansDriveLink(creatorId, value)}

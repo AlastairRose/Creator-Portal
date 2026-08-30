@@ -63,6 +63,7 @@ function CreatorCustomsList({
         <h2 className="text-sm font-semibold">Outstanding Customs</h2>
         <CreatorDriveLinkField
           label="Google Drive upload link"
+          buttonLabel="Upload Customs Here"
           initialLink={driveLink}
           isStaff={isStaff}
           onSave={(value) => updateCustomsDriveLink(creatorId, value)}
@@ -137,6 +138,7 @@ function StaffCustomsBoard({
         <h2 className="text-sm font-semibold">Outstanding Customs</h2>
         <CreatorDriveLinkField
           label="Google Drive upload link"
+          buttonLabel="Upload Customs Here"
           initialLink={driveLink}
           isStaff={isStaff}
           onSave={(value) => updateCustomsDriveLink(creatorId, value)}

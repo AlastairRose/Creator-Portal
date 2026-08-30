@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateContentWeekDriveLink } from "@/lib/actions/planner";
 import WeekPicker from "@/components/shared/WeekPicker";
+import DriveUploadButton from "@/components/shared/DriveUploadButton";
 import type {
   ContentWeek,
   Creator,
@@ -113,6 +114,7 @@ function DriveLinkField({
         placeholder="Paste this week's shared Drive folder link"
         className="w-80 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-70"
       />
+      {initialLink && <DriveUploadButton href={initialLink} label="Upload Reels Here" />}
     </div>
   );
 }
