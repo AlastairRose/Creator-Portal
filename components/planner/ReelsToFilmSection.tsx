@@ -85,7 +85,9 @@ export default function ReelsToFilmSection({
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-sm font-semibold">Reels to film</h2>
-          {contentWeekId && <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} />}
+          {contentWeekId && (
+            <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} isStaff={isStaff} />
+          )}
         </div>
         <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
           No reels were planned for this week.
@@ -100,7 +102,9 @@ export default function ReelsToFilmSection({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="text-sm font-semibold">Reels to film</h2>
         <div className="flex flex-wrap items-end gap-4">
-          {contentWeekId && <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} />}
+          {contentWeekId && (
+            <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} isStaff={isStaff} />
+          )}
           {selected.size > 0 && (
             <button
               type="button"
@@ -155,15 +159,19 @@ export default function ReelsToFilmSection({
   );
 }
 
-// Unlike the OnlyFans/Customs drive links, this one is editable by both
-// staff and the creator themselves (the reels_creator_update_guard trigger
-// explicitly allows a creator to change only drive_link on their own week).
+// Unlike the OnlyFans/Customs drive links, a creator is allowed to edit this
+// one too (the reels_creator_update_guard trigger explicitly permits a
+// creator to change only drive_link on their own week) — but the input is
+// still staff-only here, matching the compact button-only look the other
+// two sections use for creators, rather than showing the raw link.
 function ReelsDriveLinkField({
   contentWeekId,
   initialLink,
+  isStaff,
 }: {
   contentWeekId: string;
   initialLink: string | null;
+  isStaff: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(initialLink ?? "");
@@ -175,6 +183,19 @@ function ReelsDriveLinkField({
       await updateContentWeekDriveLink(contentWeekId, value);
       router.refresh();
     });
+  }
+
+  if (!isStaff) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted">Google Drive upload link</label>
+        {initialLink ? (
+          <DriveUploadButton href={initialLink} label="Upload Reels Here" />
+        ) : (
+          <span className="text-sm text-muted">Not set yet.</span>
+        )}
+      </div>
+    );
   }
 
   return (
