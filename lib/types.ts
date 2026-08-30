@@ -130,6 +130,7 @@ export type OnlyfansContentRequest = {
   description: string | null; // "Content Required"
   length: string | null;
   sexting_drive_link: string | null;
+  sexting_storyline: string | null;
   urgency: ContentRequestUrgency;
   urgency_set_at: string; // anchor the 7/14-day due target counts from
   status: "open" | "completed";

@@ -35,6 +35,7 @@ export function defaultOnlyfansRequestFields(existing?: OnlyfansContentRequestWi
       length: null,
       urgency: "complete_when_possible",
       sexting_drive_link: null,
+      sexting_storyline: null,
       sexting_items: [emptyItem()],
     };
   }
@@ -44,6 +45,7 @@ export function defaultOnlyfansRequestFields(existing?: OnlyfansContentRequestWi
     length: existing.length,
     urgency: existing.urgency,
     sexting_drive_link: existing.sexting_drive_link,
+    sexting_storyline: existing.sexting_storyline,
     sexting_items:
       existing.onlyfans_sexting_items.length > 0
         ? existing.onlyfans_sexting_items.map((item) => ({
@@ -138,6 +140,18 @@ export default function OnlyfansRequestForm({
               onChange={(e) => set("sexting_drive_link", e.target.value)}
               disabled={isPending}
               placeholder="Where the creator should upload this content"
+              className={textFieldClass}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">Storyline</label>
+            <textarea
+              value={fields.sexting_storyline ?? ""}
+              onChange={(e) => set("sexting_storyline", e.target.value)}
+              disabled={isPending}
+              rows={3}
+              placeholder="The overall scenario/storyline this content is building"
               className={textFieldClass}
             />
           </div>

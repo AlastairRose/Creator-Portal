@@ -18,6 +18,7 @@ export type OnlyfansRequestFields = {
   length: string | null;
   urgency: ContentRequestUrgency;
   sexting_drive_link: string | null;
+  sexting_storyline: string | null;
   sexting_items: OnlyfansSextingItemFields[];
 };
 
@@ -41,6 +42,7 @@ function normalizeRequestFields(fields: OnlyfansRequestFields) {
         description: null,
         length: null,
         sexting_drive_link: fields.sexting_drive_link?.trim() || null,
+        sexting_storyline: fields.sexting_storyline?.trim() || null,
       },
       items,
     };
@@ -53,6 +55,7 @@ function normalizeRequestFields(fields: OnlyfansRequestFields) {
       description: fields.description.trim(),
       length: fields.length?.trim() || null,
       sexting_drive_link: null,
+      sexting_storyline: null,
     },
     items: [] as OnlyfansSextingItemFields[],
   };

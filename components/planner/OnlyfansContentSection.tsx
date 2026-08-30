@@ -326,6 +326,9 @@ function RequestRow({
       {isSexting && isExpanded && (
         <tr className="border-t border-border">
           <td colSpan={isStaff ? 7 : 6} className="bg-background p-4">
+            {request.sexting_storyline && (
+              <p className="mb-3 whitespace-pre-wrap text-sm">{request.sexting_storyline}</p>
+            )}
             {request.sexting_drive_link && (
               <p className="mb-3 text-xs text-muted">
                 Upload to:{" "}
