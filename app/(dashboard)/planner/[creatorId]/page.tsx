@@ -6,6 +6,7 @@ import {
   getReelsForWeek,
   getOnlyfansRequests,
   getOutstandingCustoms,
+  getCreatorDriveLinks,
 } from "@/lib/queries";
 import { getCurrentWeekStart } from "@/lib/weeks";
 import ContentPlannerView from "@/components/planner/ContentPlannerView";
@@ -35,10 +36,11 @@ export default async function ContentPlannerPage({
     return <p className="text-sm text-muted">Creator not found.</p>;
   }
 
-  const [contentWeek, onlyfansRequests, outstandingCustoms] = await Promise.all([
+  const [contentWeek, onlyfansRequests, outstandingCustoms, driveLinks] = await Promise.all([
     getContentWeek(creatorId, weekStartDate),
     getOnlyfansRequests(creatorId),
     getOutstandingCustoms(creatorId),
+    getCreatorDriveLinks(creatorId),
   ]);
   const reels = contentWeek ? await getReelsForWeek(contentWeek.id) : [];
 
@@ -50,6 +52,7 @@ export default async function ContentPlannerPage({
       reels={reels}
       onlyfansRequests={onlyfansRequests}
       outstandingCustoms={outstandingCustoms}
+      driveLinks={driveLinks}
       isStaff={isStaff}
     />
   );

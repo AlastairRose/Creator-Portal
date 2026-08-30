@@ -9,34 +9,65 @@ import {
   updateOutstandingCustom,
   type CustomFields,
 } from "@/lib/actions/customs";
+import { updateCustomsDriveLink } from "@/lib/actions/creator-drive-links";
 import { OUTSTANDING_CUSTOM_STATUS_LABELS } from "@/lib/types";
 import type { OutstandingCustom, OutstandingCustomStatus } from "@/lib/types";
 import DueStatusBadge from "./DueStatusBadge";
 import CustomFieldsForm from "./CustomFieldsForm";
 import ChatScreenshotThumbnail from "./ChatScreenshotThumbnail";
+import CreatorDriveLinkField from "@/components/shared/CreatorDriveLinkField";
 
 const STAFF_TABS: OutstandingCustomStatus[] = ["outstanding", "to_do_later", "uploaded", "sent"];
 
 export default function OutstandingCustomsSection({
+  creatorId,
   customs,
+  driveLink,
   isStaff,
 }: {
+  creatorId: string;
   customs: OutstandingCustom[];
+  driveLink: string | null;
   isStaff: boolean;
 }) {
   if (!isStaff) {
-    return <CreatorCustomsList customs={customs.filter((c) => c.status === "outstanding")} />;
+    return (
+      <CreatorCustomsList
+        creatorId={creatorId}
+        driveLink={driveLink}
+        isStaff={isStaff}
+        customs={customs.filter((c) => c.status === "outstanding")}
+      />
+    );
   }
-  return <StaffCustomsBoard customs={customs} />;
+  return <StaffCustomsBoard creatorId={creatorId} driveLink={driveLink} isStaff={isStaff} customs={customs} />;
 }
 
-function CreatorCustomsList({ customs }: { customs: OutstandingCustom[] }) {
+function CreatorCustomsList({
+  creatorId,
+  driveLink,
+  isStaff,
+  customs,
+}: {
+  creatorId: string;
+  driveLink: string | null;
+  isStaff: boolean;
+  customs: OutstandingCustom[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">Outstanding Customs</h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h2 className="text-sm font-semibold">Outstanding Customs</h2>
+        <CreatorDriveLinkField
+          label="Google Drive upload link"
+          initialLink={driveLink}
+          isStaff={isStaff}
+          onSave={(value) => updateCustomsDriveLink(creatorId, value)}
+        />
+      </div>
       {customs.length === 0 ? (
         <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
           No outstanding customs.
@@ -83,7 +114,17 @@ function CreatorCustomsList({ customs }: { customs: OutstandingCustom[] }) {
   );
 }
 
-function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
+function StaffCustomsBoard({
+  creatorId,
+  driveLink,
+  isStaff,
+  customs,
+}: {
+  creatorId: string;
+  driveLink: string | null;
+  isStaff: boolean;
+  customs: OutstandingCustom[];
+}) {
   const [tab, setTab] = useState<OutstandingCustomStatus>("outstanding");
   const [isPending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -92,7 +133,15 @@ function StaffCustomsBoard({ customs }: { customs: OutstandingCustom[] }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">Outstanding Customs</h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h2 className="text-sm font-semibold">Outstanding Customs</h2>
+        <CreatorDriveLinkField
+          label="Google Drive upload link"
+          initialLink={driveLink}
+          isStaff={isStaff}
+          onSave={(value) => updateCustomsDriveLink(creatorId, value)}
+        />
+      </div>
 
       <div className="flex gap-1 border-b border-border">
         {STAFF_TABS.map((status) => (

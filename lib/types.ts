@@ -109,11 +109,27 @@ export const ONLYFANS_DUE_TAG_LABELS: Record<OnlyfansDueTag, string> = {
   overdue: "Overdue",
 };
 
-// Mirrors the founder's "Content Requests" Airtable base.
+export type OnlyfansContentType = "sexting" | "ppv" | "wall_posts" | "voice_notes" | "day_to_day" | "other";
+
+export const ONLYFANS_CONTENT_TYPE_LABELS: Record<OnlyfansContentType, string> = {
+  sexting: "Sexting",
+  ppv: "PPV",
+  wall_posts: "Wall Posts",
+  voice_notes: "Voice Notes",
+  day_to_day: "Day-to-Day",
+  other: "Other",
+};
+
+// Mirrors the founder's "Content Requests" Airtable base. `description`/
+// `length` only apply to non-sexting types — a sexting request breaks down
+// into a checklist of OnlyfansSextingItem rows instead (see below).
 export type OnlyfansContentRequest = {
   id: string;
   creator_id: string;
-  description: string; // "Content Required"
+  content_type: OnlyfansContentType;
+  description: string | null; // "Content Required"
+  length: string | null;
+  sexting_drive_link: string | null;
   urgency: ContentRequestUrgency;
   urgency_set_at: string; // anchor the 7/14-day due target counts from
   status: "open" | "completed";
@@ -122,6 +138,27 @@ export type OnlyfansContentRequest = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// One required item within a Sexting request's checklist. `creator_required`
+// is the planner's tick box: ticked items are shown on the creator's content
+// planner, unticked ones are staff-only steps that never reach the creator
+// (enforced by RLS, not just hidden in the UI).
+export type OnlyfansSextingItem = {
+  id: string;
+  request_id: string;
+  content_label: string;
+  description: string | null;
+  length: string | null;
+  creator_required: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// A request row plus its checklist, when the request is a sexting type.
+export type OnlyfansContentRequestWithItems = OnlyfansContentRequest & {
+  onlyfans_sexting_items: OnlyfansSextingItem[];
 };
 
 // outstanding: creator's active to-do. to_do_later: not yet fully paid,
@@ -232,6 +269,14 @@ export type CreatorPlan = {
   agreed_reels_per_week: number | null;
   niche_branding: string | null;
   verticals_agreed: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreatorDriveLinks = {
+  creator_id: string;
+  onlyfans_drive_link: string | null;
+  customs_drive_link: string | null;
   created_at: string;
   updated_at: string;
 };

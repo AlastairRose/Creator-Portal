@@ -4,11 +4,12 @@ import { listRecentWeeks } from "@/lib/weeks";
 import type {
   ContentWeek,
   Creator,
+  CreatorDriveLinks,
   CreatorPlan,
   CreatorSocialAccount,
   DashboardCreatorRow,
   DashboardWeekStats,
-  OnlyfansContentRequest,
+  OnlyfansContentRequestWithItems,
   OutstandingCustom,
   Profile,
   RdIdea,
@@ -133,15 +134,29 @@ export async function getCreatorPlan(creatorId: string): Promise<CreatorPlan | n
   return data as CreatorPlan | null;
 }
 
-export async function getOnlyfansRequests(creatorId: string): Promise<OnlyfansContentRequest[]> {
+export async function getOnlyfansRequests(creatorId: string): Promise<OnlyfansContentRequestWithItems[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("onlyfans_content_requests")
-    .select("*")
+    .select("*, onlyfans_sexting_items(*)")
     .eq("creator_id", creatorId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return data as OnlyfansContentRequest[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    onlyfans_sexting_items: [...row.onlyfans_sexting_items].sort((a, b) => a.sort_order - b.sort_order),
+  })) as OnlyfansContentRequestWithItems[];
+}
+
+export async function getCreatorDriveLinks(creatorId: string): Promise<CreatorDriveLinks | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("creator_drive_links")
+    .select("*")
+    .eq("creator_id", creatorId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as CreatorDriveLinks | null;
 }
 
 export async function getOutstandingCustoms(creatorId: string): Promise<OutstandingCustom[]> {

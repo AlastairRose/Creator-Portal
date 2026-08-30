@@ -7,7 +7,8 @@ import WeekPicker from "@/components/shared/WeekPicker";
 import type {
   ContentWeek,
   Creator,
-  OnlyfansContentRequest,
+  CreatorDriveLinks,
+  OnlyfansContentRequestWithItems,
   OutstandingCustom,
   Reel,
 } from "@/lib/types";
@@ -22,14 +23,16 @@ export default function ContentPlannerView({
   reels,
   onlyfansRequests,
   outstandingCustoms,
+  driveLinks,
   isStaff,
 }: {
   creator: Creator;
   weekStartDate: string;
   contentWeek: ContentWeek | null;
   reels: Reel[];
-  onlyfansRequests: OnlyfansContentRequest[];
+  onlyfansRequests: OnlyfansContentRequestWithItems[];
   outstandingCustoms: OutstandingCustom[];
+  driveLinks: CreatorDriveLinks | null;
   isStaff: boolean;
 }) {
   const router = useRouter();
@@ -63,9 +66,19 @@ export default function ContentPlannerView({
         <ReelsToFilmSection reels={reels} isStaff={isStaff} />
       )}
 
-      <OnlyfansContentSection creatorId={creator.id} requests={onlyfansRequests} isStaff={isStaff} />
+      <OnlyfansContentSection
+        creatorId={creator.id}
+        requests={onlyfansRequests}
+        driveLink={driveLinks?.onlyfans_drive_link ?? null}
+        isStaff={isStaff}
+      />
 
-      <OutstandingCustomsSection customs={outstandingCustoms} isStaff={isStaff} />
+      <OutstandingCustomsSection
+        creatorId={creator.id}
+        customs={outstandingCustoms}
+        driveLink={driveLinks?.customs_drive_link ?? null}
+        isStaff={isStaff}
+      />
     </div>
   );
 }
