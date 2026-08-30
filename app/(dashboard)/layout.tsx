@@ -18,6 +18,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ...(isStaff ? [{ href: "/admin/creators", label: "Creators" }] : []),
     ...(isStaff ? [{ href: "/admin/intake-links", label: "Custom Request Links" }] : []),
     ...(isOwner ? [{ href: "/admin/users", label: "Users" }] : []),
+    ...(isOwner ? [{ href: "/admin/google-drive", label: "Google Drive" }] : []),
   ];
 
   return (

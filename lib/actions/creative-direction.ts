@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
 import { getMissingReelFields } from "@/lib/reels";
+import { ensureWeekDriveFolder } from "@/lib/google-drive";
 
 // Finds this creator's draft content_week for the given week, creating one
 // if it doesn't exist yet. Small race window if two staff hit this at the
@@ -144,7 +145,36 @@ export async function publishContentWeek(contentWeekId: string) {
     .update({ status: "published", published_at: new Date().toISOString() })
     .eq("id", contentWeekId);
   if (error) throw new Error(error.message);
+
+  await autoCreateWeekDriveFolder(contentWeekId);
+
   revalidatePath("/creative-direction");
   revalidatePath("/planner");
   revalidatePath("/");
+}
+
+// Best-effort: if Google Drive is connected and this week doesn't already
+// have a link (never overwrites one someone pasted in by hand), create a
+// dated Drive folder for it. Never lets a Drive hiccup block publishing —
+// that's the everyday-critical action, this is a nice-to-have on top of it.
+async function autoCreateWeekDriveFolder(contentWeekId: string) {
+  try {
+    const supabase = await createClient();
+    const { data: week } = await supabase
+      .from("content_weeks")
+      .select("creator_id, week_start_date, drive_link")
+      .eq("id", contentWeekId)
+      .single();
+    if (!week || week.drive_link) return;
+
+    const { data: creator } = await supabase.from("creators").select("name").eq("id", week.creator_id).single();
+    if (!creator) return;
+
+    const driveLink = await ensureWeekDriveFolder(creator.name, week.week_start_date);
+    if (!driveLink) return;
+
+    await supabase.from("content_weeks").update({ drive_link: driveLink }).eq("id", contentWeekId);
+  } catch (err) {
+    console.error("Couldn't auto-create Drive folder for week:", err);
+  }
 }
