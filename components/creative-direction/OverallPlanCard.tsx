@@ -2,14 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { upsertCreatorPlan } from "@/lib/actions/creator-plans";
-import type { Creator, CreatorPlan } from "@/lib/types";
+import { updateWeeklyRootDriveLink } from "@/lib/actions/creator-drive-links";
+import type { Creator, CreatorDriveLinks, CreatorPlan } from "@/lib/types";
 
 export default function OverallPlanCard({
   creator,
   plan,
+  driveLinks,
 }: {
   creator: Creator;
   plan: CreatorPlan | null;
+  driveLinks: CreatorDriveLinks | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -20,6 +23,8 @@ export default function OverallPlanCard({
   const [nicheBranding, setNicheBranding] = useState(plan?.niche_branding ?? "");
   const [verticals, setVerticals] = useState<string[]>(plan?.verticals_agreed ?? []);
   const [newVertical, setNewVertical] = useState("");
+  const [weeklyRootDriveLink, setWeeklyRootDriveLink] = useState(driveLinks?.weekly_root_drive_link ?? "");
+  const [isDriveLinkPending, startDriveLinkTransition] = useTransition();
 
   function addVertical() {
     const value = newVertical.trim();
@@ -30,6 +35,13 @@ export default function OverallPlanCard({
 
   function removeVertical(value: string) {
     setVerticals(verticals.filter((v) => v !== value));
+  }
+
+  function saveWeeklyRootDriveLink() {
+    if (weeklyRootDriveLink === (driveLinks?.weekly_root_drive_link ?? "")) return;
+    startDriveLinkTransition(async () => {
+      await updateWeeklyRootDriveLink(creator.id, weeklyRootDriveLink);
+    });
   }
 
   function save() {
@@ -124,6 +136,22 @@ export default function OverallPlanCard({
             Add
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5 border-t border-border pt-5">
+        <label className="text-xs font-medium text-muted">Weekly Drive folder (optional)</label>
+        <input
+          value={weeklyRootDriveLink}
+          onChange={(e) => setWeeklyRootDriveLink(e.target.value)}
+          onBlur={saveWeeklyRootDriveLink}
+          disabled={isDriveLinkPending}
+          placeholder="Paste a Drive folder link to create weekly folders inside it instead of the default"
+          className={textFieldClass}
+        />
+        <p className="text-xs text-muted">
+          When a week is published, the dated folder is created here instead of under the default
+          &quot;Creator Portal / {creator.name}&quot; folder. Leave blank to use the default.
+        </p>
       </div>
 
       <div className="flex items-center gap-3">

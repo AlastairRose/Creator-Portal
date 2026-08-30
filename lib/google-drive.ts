@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 
-// A "drive.file" scope grant only ever lets the connected Google account's
-// app-created files be touched by the API — never the rest of that person's
-// Drive. That's why the connect flow itself creates the root "Creator
-// Portal" folder (see completeGoogleDriveConnection) rather than asking the
-// founder to share an existing one: everything nested under it stays in
-// scope for the lifetime of the connection.
-const SCOPE = "https://www.googleapis.com/auth/drive.file";
+// Full "drive" scope, not the narrower "drive.file" — staff can designate an
+// already-existing folder per creator (see weekly_root_drive_link) as where
+// weekly folders should be created, and a pasted-in folder the app didn't
+// create itself is invisible to a drive.file-scoped token. This is a
+// deliberate trade of narrower scope for that flexibility; the connection is
+// only ever used server-side (never exposed to the browser).
+const SCOPE = "https://www.googleapis.com/auth/drive";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
@@ -200,15 +200,33 @@ async function getValidAccessToken(connection: Connection): Promise<string> {
   return tokens.access_token;
 }
 
+// A Drive folder link looks like .../folders/<ID> or .../folders/<ID>?...
+// Accepts a bare ID too, for anyone who pastes just the ID.
+export function extractFolderId(linkOrId: string): string | null {
+  const trimmed = linkOrId.trim();
+  const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
 // Called when a week is published. No-ops if Drive isn't connected, or if
 // the week already has a drive_link (never overwrites a manually pasted
-// link). Folder layout: "Creator Portal" / {creator name} / "Week of {date}".
-export async function ensureWeekDriveFolder(creatorName: string, weekStartDate: string): Promise<string | null> {
+// link). Default folder layout: "Creator Portal" / {creator name} / "Week of
+// {date}" — unless `weeklyRootFolderId` is given (a staff-designated
+// existing folder for this creator), in which case "Week of {date}" is
+// created directly inside that folder instead.
+export async function ensureWeekDriveFolder(
+  creatorName: string,
+  weekStartDate: string,
+  weeklyRootFolderId?: string | null
+): Promise<string | null> {
   const connection = await getGoogleDriveConnection();
   if (!connection) return null;
 
   const accessToken = await getValidAccessToken(connection);
-  const creatorFolderId = await findOrCreateFolder(accessToken, creatorName, connection.root_folder_id);
-  const weekFolderId = await findOrCreateFolder(accessToken, `Week of ${weekStartDate}`, creatorFolderId);
+  const parentId =
+    weeklyRootFolderId ?? (await findOrCreateFolder(accessToken, creatorName, connection.root_folder_id));
+  const weekFolderId = await findOrCreateFolder(accessToken, `Week of ${weekStartDate}`, parentId);
   return `https://drive.google.com/drive/folders/${weekFolderId}`;
 }

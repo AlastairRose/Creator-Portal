@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
 import { getMissingReelFields } from "@/lib/reels";
-import { ensureWeekDriveFolder } from "@/lib/google-drive";
+import { ensureWeekDriveFolder, extractFolderId } from "@/lib/google-drive";
 
 // Finds this creator's draft content_week for the given week, creating one
 // if it doesn't exist yet. Small race window if two staff hit this at the
@@ -167,10 +167,21 @@ async function autoCreateWeekDriveFolder(contentWeekId: string) {
       .single();
     if (!week || week.drive_link) return;
 
-    const { data: creator } = await supabase.from("creators").select("name").eq("id", week.creator_id).single();
+    const [{ data: creator }, { data: driveLinks }] = await Promise.all([
+      supabase.from("creators").select("name").eq("id", week.creator_id).single(),
+      supabase
+        .from("creator_drive_links")
+        .select("weekly_root_drive_link")
+        .eq("creator_id", week.creator_id)
+        .maybeSingle(),
+    ]);
     if (!creator) return;
 
-    const driveLink = await ensureWeekDriveFolder(creator.name, week.week_start_date);
+    const weeklyRootFolderId = driveLinks?.weekly_root_drive_link
+      ? extractFolderId(driveLinks.weekly_root_drive_link)
+      : null;
+
+    const driveLink = await ensureWeekDriveFolder(creator.name, week.week_start_date, weeklyRootFolderId);
     if (!driveLink) return;
 
     await supabase.from("content_weeks").update({ drive_link: driveLink }).eq("id", contentWeekId);

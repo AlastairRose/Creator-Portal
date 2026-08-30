@@ -278,6 +278,7 @@ export type CreatorDriveLinks = {
   creator_id: string;
   onlyfans_drive_link: string | null;
   customs_drive_link: string | null;
+  weekly_root_drive_link: string | null;
   created_at: string;
   updated_at: string;
 };
