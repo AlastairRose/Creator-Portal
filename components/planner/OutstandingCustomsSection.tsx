@@ -16,6 +16,7 @@ import DueStatusBadge from "./DueStatusBadge";
 import CustomFieldsForm from "./CustomFieldsForm";
 import ChatScreenshotThumbnail from "./ChatScreenshotThumbnail";
 import CreatorDriveLinkField from "@/components/shared/CreatorDriveLinkField";
+import Modal from "@/components/shared/Modal";
 
 const STAFF_TABS: OutstandingCustomStatus[] = ["outstanding", "to_do_later", "uploaded", "sent"];
 
@@ -168,49 +169,23 @@ function StaffCustomsBoard({
             <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Date</th>
               <th className="px-4 py-3 font-medium">Sub name</th>
-              <th className="px-4 py-3 font-medium">Price paid</th>
-              <th className="px-4 py-3 font-medium">Due date</th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell">Price paid</th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell">Due date</th>
               <th className="px-4 py-3 font-medium">Tag</th>
-              <th className="px-4 py-3 font-medium"></th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell"></th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((custom) => {
-              const isExpanded = expandedId === custom.id;
-              return (
-                <Fragment key={custom.id}>
-                  <tr className="border-t border-border">
-                    <td className="px-4 py-3 text-muted">
-                      {new Date(custom.requested_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedId(isExpanded ? null : custom.id)}
-                        className="text-left font-medium hover:text-accent"
-                      >
-                        {custom.sub_name ?? custom.sub_username ?? "—"}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{custom.custom_price_agreed ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted">{custom.due_by ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <DueStatusBadge custom={custom} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <StatusActions custom={custom} isPending={isPending} startTransition={startTransition} />
-                    </td>
-                  </tr>
-                  {isExpanded && (
-                    <tr className="border-t border-border">
-                      <td colSpan={6} className="bg-background p-4">
-                        <EditableCustom custom={custom} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
+            {visible.map((custom) => (
+              <StaffCustomRow
+                key={custom.id}
+                custom={custom}
+                isExpanded={expandedId === custom.id}
+                onToggleExpanded={() => setExpandedId(expandedId === custom.id ? null : custom.id)}
+                isPending={isPending}
+                startTransition={startTransition}
+              />
+            ))}
             {visible.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-muted">
@@ -222,6 +197,76 @@ function StaffCustomsBoard({
         </table>
       </div>
     </section>
+  );
+}
+
+function StaffCustomRow({
+  custom,
+  isExpanded,
+  onToggleExpanded,
+  isPending,
+  startTransition,
+}: {
+  custom: OutstandingCustom;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  isPending: boolean;
+  startTransition: (fn: () => Promise<void>) => void;
+}) {
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const name = custom.sub_name ?? custom.sub_username ?? "—";
+
+  return (
+    <Fragment>
+      <tr className="border-t border-border">
+        <td className="px-4 py-3 text-muted">{new Date(custom.requested_at).toLocaleDateString()}</td>
+        <td className="px-4 py-3">
+          <div className="flex flex-col items-start gap-1">
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              className="hidden text-left font-medium hover:text-accent sm:inline"
+            >
+              {name}
+            </button>
+            <span className="font-medium sm:hidden">{name}</span>
+            <button
+              type="button"
+              onClick={() => setShowMobileDetail(true)}
+              className="text-xs text-accent hover:underline sm:hidden"
+            >
+              More info
+            </button>
+          </div>
+        </td>
+        <td className="hidden px-4 py-3 text-muted sm:table-cell">{custom.custom_price_agreed ?? "—"}</td>
+        <td className="hidden px-4 py-3 text-muted sm:table-cell">{custom.due_by ?? "—"}</td>
+        <td className="px-4 py-3">
+          <DueStatusBadge custom={custom} />
+        </td>
+        <td className="hidden px-4 py-3 text-right sm:table-cell">
+          <StatusActions custom={custom} isPending={isPending} startTransition={startTransition} />
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="hidden border-t border-border sm:table-row">
+          <td colSpan={6} className="bg-background p-4">
+            <EditableCustom custom={custom} />
+          </td>
+        </tr>
+      )}
+      {showMobileDetail && (
+        <Modal title={name} onClose={() => setShowMobileDetail(false)}>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <DueStatusBadge custom={custom} />
+              <StatusActions custom={custom} isPending={isPending} startTransition={startTransition} />
+            </div>
+            <EditableCustom custom={custom} />
+          </div>
+        </Modal>
+      )}
+    </Fragment>
   );
 }
 
