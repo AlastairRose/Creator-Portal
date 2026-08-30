@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
-import { markReelsUploaded, markReelStaffStatus, setReelDeclined } from "@/lib/actions/planner";
+import {
+  markReelsUploaded,
+  markReelStaffStatus,
+  setReelDeclined,
+  updateContentWeekDriveLink,
+} from "@/lib/actions/planner";
 import { saveReelToIdeas, saveReelToRdIdeas } from "@/lib/actions/reel-library";
 import { submitOwnIdea } from "@/lib/actions/ideas";
 import { REEL_STATUS_LABELS } from "@/lib/types";
@@ -10,6 +15,7 @@ import type { Reel, ReelStatus } from "@/lib/types";
 import type { ReelDraftFields } from "@/lib/actions/creative-direction";
 import Modal from "@/components/shared/Modal";
 import ReelFieldsForm from "@/components/shared/ReelFieldsForm";
+import DriveUploadButton from "@/components/shared/DriveUploadButton";
 
 const EMPTY_OWN_IDEA_FIELDS: ReelDraftFields = {
   name: "",
@@ -37,9 +43,13 @@ const STATUS_BADGE_CLASS: Record<ReelStatus, string> = {
 export default function ReelsToFilmSection({
   reels,
   isStaff,
+  contentWeekId,
+  driveLink,
 }: {
   reels: Reel[];
   isStaff: boolean;
+  contentWeekId?: string | null;
+  driveLink?: string | null;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -73,7 +83,10 @@ export default function ReelsToFilmSection({
   if (reels.length === 0) {
     return (
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Reels to film</h2>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className="text-sm font-semibold">Reels to film</h2>
+          {contentWeekId && <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} />}
+        </div>
         <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
           No reels were planned for this week.
         </div>
@@ -84,18 +97,21 @@ export default function ReelsToFilmSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="text-sm font-semibold">Reels to film</h2>
-        {selected.size > 0 && (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={handleMarkUploaded}
-            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            Mark {selected.size} as uploaded
-          </button>
-        )}
+        <div className="flex flex-wrap items-end gap-4">
+          {contentWeekId && <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} />}
+          {selected.size > 0 && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleMarkUploaded}
+              className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              Mark {selected.size} as uploaded
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
@@ -136,6 +152,44 @@ export default function ReelsToFilmSection({
 
       {!isStaff && <SubmitOwnIdeaButton />}
     </section>
+  );
+}
+
+// Unlike the OnlyFans/Customs drive links, this one is editable by both
+// staff and the creator themselves (the reels_creator_update_guard trigger
+// explicitly allows a creator to change only drive_link on their own week).
+function ReelsDriveLinkField({
+  contentWeekId,
+  initialLink,
+}: {
+  contentWeekId: string;
+  initialLink: string | null;
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState(initialLink ?? "");
+  const [isPending, startTransition] = useTransition();
+
+  function save() {
+    if (value === (initialLink ?? "")) return;
+    startTransition(async () => {
+      await updateContentWeekDriveLink(contentWeekId, value);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium text-muted">Google Drive upload link</label>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        disabled={isPending}
+        placeholder="Paste this week's shared Drive folder link"
+        className="w-80 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-70"
+      />
+      {initialLink && <DriveUploadButton href={initialLink} label="Upload Reels Here" />}
+    </div>
   );
 }
 

@@ -1,10 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { updateContentWeekDriveLink } from "@/lib/actions/planner";
 import WeekPicker from "@/components/shared/WeekPicker";
-import DriveUploadButton from "@/components/shared/DriveUploadButton";
 import type {
   ContentWeek,
   Creator,
@@ -56,7 +53,6 @@ export default function ContentPlannerView({
           <label className="text-xs font-medium text-muted">Week</label>
           <WeekPicker weekStartDate={weekStartDate} onChange={navigateWeek} />
         </div>
-        {contentWeek && <DriveLinkField contentWeekId={contentWeek.id} initialLink={contentWeek.drive_link} />}
       </div>
 
       {!contentWeek ? (
@@ -64,7 +60,12 @@ export default function ContentPlannerView({
           Nothing has been published for this week yet.
         </div>
       ) : (
-        <ReelsToFilmSection reels={reels} isStaff={isStaff} />
+        <ReelsToFilmSection
+          reels={reels}
+          isStaff={isStaff}
+          contentWeekId={contentWeek.id}
+          driveLink={contentWeek.drive_link}
+        />
       )}
 
       <OnlyfansContentSection
@@ -80,41 +81,6 @@ export default function ContentPlannerView({
         driveLink={driveLinks?.customs_drive_link ?? null}
         isStaff={isStaff}
       />
-    </div>
-  );
-}
-
-function DriveLinkField({
-  contentWeekId,
-  initialLink,
-}: {
-  contentWeekId: string;
-  initialLink: string | null;
-}) {
-  const router = useRouter();
-  const [value, setValue] = useState(initialLink ?? "");
-  const [isPending, startTransition] = useTransition();
-
-  function save() {
-    if (value === (initialLink ?? "")) return;
-    startTransition(async () => {
-      await updateContentWeekDriveLink(contentWeekId, value);
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-muted">Google Drive upload link</label>
-      <input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={save}
-        disabled={isPending}
-        placeholder="Paste this week's shared Drive folder link"
-        className="w-80 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-70"
-      />
-      {initialLink && <DriveUploadButton href={initialLink} label="Upload Reels Here" />}
     </div>
   );
 }
