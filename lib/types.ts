@@ -234,6 +234,29 @@ export type RdIdea = {
   updated_at: string;
 };
 
+// A second idea library alongside R&D: original ideas (rather than "found
+// online"), and where creators can submit their own via
+// submitted_by_creator_id. Same shape as RdIdea otherwise.
+export type Idea = {
+  id: string;
+  name: string;
+  idea: string | null;
+  inspo_link: string | null;
+  required_shots: string | null;
+  hook: string | null;
+  outfit: string | null;
+  location: string | null;
+  filming_style: string | null;
+  editing_notes: string | null;
+  posting_notes: string | null;
+  vertical: string | null;
+  suitable_creator_ids: string[];
+  submitted_by_creator_id: string | null;
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "twitter" | "youtube";
 
 export const SOCIAL_PLATFORMS: SocialPlatform[] = [

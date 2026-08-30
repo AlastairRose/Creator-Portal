@@ -3,8 +3,27 @@
 import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
 import { markReelsUploaded, markReelStaffStatus, setReelDeclined } from "@/lib/actions/planner";
+import { saveReelToIdeas, saveReelToRdIdeas } from "@/lib/actions/reel-library";
+import { submitOwnIdea } from "@/lib/actions/ideas";
 import { REEL_STATUS_LABELS } from "@/lib/types";
 import type { Reel, ReelStatus } from "@/lib/types";
+import type { ReelDraftFields } from "@/lib/actions/creative-direction";
+import Modal from "@/components/shared/Modal";
+import ReelFieldsForm from "@/components/shared/ReelFieldsForm";
+
+const EMPTY_OWN_IDEA_FIELDS: ReelDraftFields = {
+  name: "",
+  idea: "",
+  inspo_link: null,
+  required_shots: null,
+  hook: null,
+  outfit: null,
+  location: null,
+  filming_style: null,
+  editing_notes: null,
+  posting_notes: null,
+  vertical: null,
+};
 
 const STATUS_BADGE_CLASS: Record<ReelStatus, string> = {
   planned: "bg-warning/15 text-warning",
@@ -58,6 +77,7 @@ export default function ReelsToFilmSection({
         <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
           No reels were planned for this week.
         </div>
+        {!isStaff && <SubmitOwnIdeaButton />}
       </section>
     );
   }
@@ -113,7 +133,79 @@ export default function ReelsToFilmSection({
           </tbody>
         </table>
       </div>
+
+      {!isStaff && <SubmitOwnIdeaButton />}
     </section>
+  );
+}
+
+function SubmitOwnIdeaButton() {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [fields, setFields] = useState<ReelDraftFields>(EMPTY_OWN_IDEA_FIELDS);
+
+  function submit() {
+    if (!fields.name.trim()) return;
+    startTransition(async () => {
+      try {
+        await submitOwnIdea(fields);
+        setError(null);
+        setIsOpen(false);
+        setFields(EMPTY_OWN_IDEA_FIELDS);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't submit that idea.");
+      }
+    });
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="self-start rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-raised"
+      >
+        Submit Own Idea
+      </button>
+
+      {isOpen && (
+        <Modal title="Submit your own idea" onClose={() => setIsOpen(false)}>
+          <ReelFieldsForm
+            fields={fields}
+            onChange={setFields}
+            disabled={isPending}
+            footer={
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={isPending || !fields.name.trim()}
+                    onClick={submit}
+                    className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    Submit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="text-sm text-muted hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-xs text-muted">
+                  Fill in whatever you like — only a short name is required, the rest is optional.
+                </p>
+                {error && <p className="text-xs text-danger">{error}</p>}
+              </div>
+            }
+          />
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -256,7 +348,7 @@ function ReelRow({
       {isExpanded && (
         <tr className="border-t border-border">
           <td colSpan={5} className="bg-background p-4">
-            <ReelDetail reel={reel} />
+            <ReelDetail reel={reel} isStaff={isStaff} />
           </td>
         </tr>
       )}
@@ -264,7 +356,27 @@ function ReelRow({
   );
 }
 
-function ReelDetail({ reel }: { reel: Reel }) {
+function reelToDraftFields(reel: Reel): ReelDraftFields {
+  return {
+    name: reel.name,
+    idea: reel.idea,
+    inspo_link: reel.inspo_link,
+    required_shots: reel.required_shots,
+    hook: reel.hook,
+    outfit: reel.outfit,
+    location: reel.location,
+    filming_style: reel.filming_style,
+    editing_notes: reel.editing_notes,
+    posting_notes: reel.posting_notes,
+    vertical: reel.vertical,
+  };
+}
+
+function ReelDetail({ reel, isStaff }: { reel: Reel; isStaff: boolean }) {
+  const [isPending, startTransition] = useTransition();
+  const [savedTo, setSavedTo] = useState<"rd" | "ideas" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const rows: [string, string | null][] = [
     ["Idea", reel.idea],
     ["Inspo link", reel.inspo_link],
@@ -275,14 +387,55 @@ function ReelDetail({ reel }: { reel: Reel }) {
     ["Filming style", reel.filming_style],
   ];
 
+  function saveToLibrary(target: "rd" | "ideas") {
+    startTransition(async () => {
+      try {
+        const fields = reelToDraftFields(reel);
+        if (target === "rd") await saveReelToRdIdeas(fields, reel.creator_id);
+        else await saveReelToIdeas(fields, reel.creator_id);
+        setError(null);
+        setSavedTo(target);
+        setTimeout(() => setSavedTo(null), 2500);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't save that.");
+      }
+    });
+  }
+
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <dt className="text-xs font-medium text-muted">{label}</dt>
-          <dd className="mt-0.5 whitespace-pre-wrap">{value || "—"}</dd>
+    <div className="flex flex-col gap-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-xs font-medium text-muted">{label}</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap">{value || "—"}</dd>
+          </div>
+        ))}
+      </dl>
+      {isStaff && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex gap-4">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => saveToLibrary("rd")}
+              className="self-start text-xs text-muted hover:text-foreground disabled:opacity-50"
+            >
+              Save to R&D
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => saveToLibrary("ideas")}
+              className="self-start text-xs text-muted hover:text-foreground disabled:opacity-50"
+            >
+              Save to Ideas
+            </button>
+          </div>
+          {savedTo && <p className="text-xs text-success">Saved to {savedTo === "rd" ? "R&D" : "Ideas"}.</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
         </div>
-      ))}
-    </dl>
+      )}
+    </div>
   );
 }

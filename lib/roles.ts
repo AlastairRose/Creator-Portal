@@ -34,6 +34,14 @@ export async function requireOwner(): Promise<Profile> {
   return profile;
 }
 
+export async function requireCreator(): Promise<Profile & { creator_id: string }> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "creator" || !profile.creator_id) {
+    redirect("/");
+  }
+  return profile as Profile & { creator_id: string };
+}
+
 export function isStaffRole(role: Profile["role"]): boolean {
   return (STAFF_ROLES as string[]).includes(role);
 }

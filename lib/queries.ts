@@ -9,6 +9,7 @@ import type {
   CreatorSocialAccount,
   DashboardCreatorRow,
   DashboardWeekStats,
+  Idea,
   OnlyfansContentRequestWithItems,
   OutstandingCustom,
   Profile,
@@ -111,6 +112,13 @@ export async function getRdIdeas(): Promise<RdIdea[]> {
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data as RdIdea[];
+}
+
+export async function getIdeas(): Promise<Idea[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("ideas").select("*").order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data as Idea[];
 }
 
 export async function getCreatorSocialAccounts(creatorId: string): Promise<CreatorSocialAccount[]> {

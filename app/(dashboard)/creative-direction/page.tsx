@@ -1,4 +1,4 @@
-import { getCreators, getContentWeek, getReelsForWeek, getCreatorPlan } from "@/lib/queries";
+import { getCreators, getContentWeek, getReelsForWeek, getCreatorPlan, getRdIdeas, getIdeas } from "@/lib/queries";
 import { getNextWeekStart } from "@/lib/weeks";
 import WeeklyDraftPlanner from "@/components/creative-direction/WeeklyDraftPlanner";
 
@@ -12,9 +12,11 @@ export default async function CreativeDirectionReelPlannerPage({
   const creatorId = params.creatorId ?? allCreators[0]?.id ?? null;
   const weekStartDate = params.week ?? getNextWeekStart();
 
-  const [contentWeek, creatorPlan] = await Promise.all([
+  const [contentWeek, creatorPlan, rdIdeas, ideas] = await Promise.all([
     creatorId ? getContentWeek(creatorId, weekStartDate) : null,
     creatorId ? getCreatorPlan(creatorId) : null,
+    getRdIdeas(),
+    getIdeas(),
   ]);
   const reels = contentWeek ? await getReelsForWeek(contentWeek.id) : [];
 
@@ -25,6 +27,9 @@ export default async function CreativeDirectionReelPlannerPage({
       contentWeek={contentWeek}
       reels={reels}
       agreedReelsPerWeek={creatorPlan?.agreed_reels_per_week ?? null}
+      rdIdeas={rdIdeas}
+      ideas={ideas}
+      creators={allCreators}
     />
   );
 }

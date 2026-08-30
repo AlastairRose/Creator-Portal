@@ -8,10 +8,12 @@ const TABS = [
   { href: "/creative-direction", label: "Reel Planner" },
   { href: "/creative-direction/overall-plan", label: "Overall Plan" },
   { href: "/creative-direction/rd", label: "R&D" },
+  { href: "/creative-direction/ideas", label: "Ideas" },
 ];
 
-// R&D is a shared idea library, not scoped to one creator, so it doesn't
-// need (and would be misleading next to) the creator selector.
+// R&D and Ideas are shared idea libraries, not scoped to one creator, so they
+// don't need (and would be misleading next to) the creator selector — each
+// has its own internal "suitable creator" filter instead.
 const CREATOR_SCOPED_TABS = new Set(["/creative-direction", "/creative-direction/overall-plan"]);
 
 export default function CreativeDirectionShell({
