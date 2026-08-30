@@ -1,11 +1,6 @@
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
 import { getCreators, getCreator, getOnlyfansRequests, getCreatorDriveLinks } from "@/lib/queries";
 import OnlyfansContentSection from "@/components/planner/OnlyfansContentSection";
-import type { OnlyfansContentRequestWithItems } from "@/lib/types";
-
-function highlyRequestedOpen(requests: OnlyfansContentRequestWithItems[]) {
-  return requests.filter((r) => r.urgency === "highly_requested" && r.status === "open");
-}
 
 export default async function OnlyfansContentPage({
   searchParams,
@@ -30,11 +25,12 @@ export default async function OnlyfansContentPage({
     return (
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Highly Requested OnlyFans Content</h1>
+          <h1 className="text-xl font-semibold tracking-tight">OnlyFans Content</h1>
+          <p className="mt-1 text-sm text-muted">Highly requested items are always shown first.</p>
         </div>
         <OnlyfansContentSection
           creatorId={profile.creator_id}
-          requests={highlyRequestedOpen(requests)}
+          requests={requests}
           driveLink={driveLinks?.onlyfans_drive_link ?? null}
           isStaff={false}
         />
@@ -53,11 +49,12 @@ export default async function OnlyfansContentPage({
     return (
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Highly Requested OnlyFans Content — {creator.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">OnlyFans Content — {creator.name}</h1>
+          <p className="mt-1 text-sm text-muted">Highly requested items are always shown first.</p>
         </div>
         <OnlyfansContentSection
           creatorId={creatorId}
-          requests={highlyRequestedOpen(requests)}
+          requests={requests}
           driveLink={driveLinks?.onlyfans_drive_link ?? null}
           isStaff
         />
@@ -72,7 +69,7 @@ export default async function OnlyfansContentPage({
         getOnlyfansRequests(creator.id),
         getCreatorDriveLinks(creator.id),
       ]);
-      return { creator, requests: highlyRequestedOpen(requests), driveLink: driveLinks?.onlyfans_drive_link ?? null };
+      return { creator, requests, driveLink: driveLinks?.onlyfans_drive_link ?? null };
     })
   );
   const withRequests = sections.filter((s) => s.requests.length > 0);
@@ -80,13 +77,15 @@ export default async function OnlyfansContentPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Highly Requested OnlyFans Content</h1>
-        <p className="mt-1 text-sm text-muted">Across every creator.</p>
+        <h1 className="text-xl font-semibold tracking-tight">OnlyFans Content</h1>
+        <p className="mt-1 text-sm text-muted">
+          Across every creator. Highly requested items are always shown first.
+        </p>
       </div>
 
       {withRequests.length === 0 && (
         <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">
-          Nothing highly requested right now.
+          Nothing logged yet.
         </div>
       )}
 

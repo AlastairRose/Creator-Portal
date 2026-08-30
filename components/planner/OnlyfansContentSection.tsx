@@ -30,6 +30,21 @@ const DUE_TAG_BADGE_CLASS: Record<OnlyfansDueTag, string> = {
   overdue: "bg-danger/15 text-danger",
 };
 
+// Highly requested always floats to the top regardless of anything else;
+// within the same urgency, the oldest request (the one waiting longest)
+// comes first.
+const URGENCY_SORT_ORDER: Record<ContentRequestUrgency, number> = {
+  highly_requested: 0,
+  complete_when_possible: 1,
+  not_required: 2,
+};
+
+function compareRequests(a: OnlyfansContentRequestWithItems, b: OnlyfansContentRequestWithItems) {
+  const urgencyDiff = URGENCY_SORT_ORDER[a.urgency] - URGENCY_SORT_ORDER[b.urgency];
+  if (urgencyDiff !== 0) return urgencyDiff;
+  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+}
+
 export default function OnlyfansContentSection({
   creatorId,
   requests,
@@ -45,8 +60,9 @@ export default function OnlyfansContentSection({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<OnlyfansContentRequestWithItems | null>(null);
 
-  const openRequests = requests.filter((r) => r.status === "open");
-  const completedRequests = requests.filter((r) => r.status === "completed");
+  const sortedRequests = [...requests].sort(compareRequests);
+  const openRequests = sortedRequests.filter((r) => r.status === "open");
+  const completedRequests = sortedRequests.filter((r) => r.status === "completed");
   const columnCount = isStaff ? 7 : 6;
 
   return (
@@ -67,8 +83,8 @@ export default function OnlyfansContentSection({
           <thead>
             <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 font-medium">Content Required</th>
-              <th className="px-4 py-3 font-medium">Length</th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell">Content Required</th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell">Length</th>
               <th className="px-4 py-3 font-medium">Logged</th>
               <th className="px-4 py-3 font-medium">Urgency</th>
               <th className="px-4 py-3 font-medium">Due</th>
@@ -222,6 +238,7 @@ function RequestRow({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
   const dueTag = computeOnlyfansDueTag(request);
   const isSexting = request.content_type === "sexting";
   const isCompleted = request.status === "completed";
@@ -236,11 +253,22 @@ function RequestRow({
   return (
     <Fragment>
       <tr className={`border-t border-border ${isSexting ? "cursor-pointer" : ""}`}>
-        <td className="px-4 py-3 text-muted" onClick={() => isSexting && setIsExpanded((v) => !v)}>
-          {ONLYFANS_CONTENT_TYPE_LABELS[request.content_type]}
+        <td className="px-4 py-3 text-muted">
+          <div className="flex flex-col items-start gap-1">
+            <span onClick={() => isSexting && setIsExpanded((v) => !v)}>
+              {ONLYFANS_CONTENT_TYPE_LABELS[request.content_type]}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowMobileDetail(true)}
+              className="text-xs text-accent hover:underline sm:hidden"
+            >
+              More info
+            </button>
+          </div>
         </td>
         <td
-          className={`px-4 py-3 ${isCompleted ? "text-muted line-through" : ""}`}
+          className={`hidden px-4 py-3 sm:table-cell ${isCompleted ? "text-muted line-through" : ""}`}
           onClick={() => isSexting && setIsExpanded((v) => !v)}
         >
           {isSexting ? (
@@ -252,7 +280,7 @@ function RequestRow({
             request.description
           )}
         </td>
-        <td className="px-4 py-3 text-muted">{isSexting ? "—" : request.length ?? "—"}</td>
+        <td className="hidden px-4 py-3 text-muted sm:table-cell">{isSexting ? "—" : request.length ?? "—"}</td>
         <td className="px-4 py-3 text-muted">{new Date(request.created_at).toLocaleDateString()}</td>
         <td className="px-4 py-3">
           {isStaff && request.status === "open" ? (
@@ -325,55 +353,80 @@ function RequestRow({
         )}
       </tr>
       {isSexting && isExpanded && (
-        <tr className="border-t border-border">
+        <tr className="hidden border-t border-border sm:table-row">
           <td colSpan={isStaff ? 7 : 6} className="bg-background p-4">
-            {request.sexting_storyline && (
-              <p className="mb-3 whitespace-pre-wrap text-sm">{request.sexting_storyline}</p>
-            )}
-            {request.sexting_drive_link && (
-              <p className="mb-3 text-xs text-muted">
-                Upload to:{" "}
-                <a
-                  href={request.sexting_drive_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-accent hover:underline"
-                >
-                  {request.sexting_drive_link}
-                </a>
-              </p>
-            )}
-            {request.onlyfans_sexting_items.length === 0 ? (
-              <p className="text-xs text-muted">Nothing required from you here.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
-                      <th className="px-3 py-2 font-medium">Required Content</th>
-                      <th className="px-3 py-2 font-medium">Description</th>
-                      <th className="px-3 py-2 font-medium">Length</th>
-                      {isStaff && <th className="px-3 py-2 font-medium">Visible to creator</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {request.onlyfans_sexting_items.map((item) => (
-                      <tr key={item.id} className="border-t border-border">
-                        <td className="px-3 py-2 font-medium">{item.content_label}</td>
-                        <td className="px-3 py-2 text-muted">{item.description ?? "—"}</td>
-                        <td className="px-3 py-2 text-muted">{item.length ?? "—"}</td>
-                        {isStaff && (
-                          <td className="px-3 py-2 text-muted">{item.creator_required ? "Yes" : "Staff only"}</td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <RequestDetailContent request={request} isStaff={isStaff} />
           </td>
         </tr>
       )}
+      {showMobileDetail && (
+        <Modal title={ONLYFANS_CONTENT_TYPE_LABELS[request.content_type]} onClose={() => setShowMobileDetail(false)}>
+          <RequestDetailContent request={request} isStaff={isStaff} />
+        </Modal>
+      )}
     </Fragment>
+  );
+}
+
+function RequestDetailContent({
+  request,
+  isStaff,
+}: {
+  request: OnlyfansContentRequestWithItems;
+  isStaff: boolean;
+}) {
+  if (request.content_type !== "sexting") {
+    return (
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div>
+          <dt className="text-xs font-medium text-muted">Description</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap">{request.description || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-muted">Length</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap">{request.length || "—"}</dd>
+        </div>
+      </dl>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {request.sexting_storyline && <p className="whitespace-pre-wrap text-sm">{request.sexting_storyline}</p>}
+      {request.sexting_drive_link && (
+        <p className="text-xs text-muted">
+          Upload to:{" "}
+          <a href={request.sexting_drive_link} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            {request.sexting_drive_link}
+          </a>
+        </p>
+      )}
+      {request.onlyfans_sexting_items.length === 0 ? (
+        <p className="text-xs text-muted">Nothing required from you here.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
+                <th className="px-3 py-2 font-medium">Required Content</th>
+                <th className="px-3 py-2 font-medium">Description</th>
+                <th className="px-3 py-2 font-medium">Length</th>
+                {isStaff && <th className="px-3 py-2 font-medium">Visible to creator</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {request.onlyfans_sexting_items.map((item) => (
+                <tr key={item.id} className="border-t border-border">
+                  <td className="px-3 py-2 font-medium">{item.content_label}</td>
+                  <td className="px-3 py-2 text-muted">{item.description ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted">{item.length ?? "—"}</td>
+                  {isStaff && <td className="px-3 py-2 text-muted">{item.creator_required ? "Yes" : "Staff only"}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
