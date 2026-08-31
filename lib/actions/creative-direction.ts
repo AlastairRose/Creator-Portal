@@ -137,6 +137,20 @@ export async function deleteDraftReel(reelId: string) {
   revalidatePath("/creative-direction");
 }
 
+// Deletes a whole week's plan — draft or published — including every reel
+// in it (cascades via the reels FK). Meant for clearing out test/mistaken
+// weeks, not a routine action; the caller should confirm before calling
+// this since there's no undo.
+export async function deleteContentWeek(contentWeekId: string) {
+  await requireStaff();
+  const supabase = await createClient();
+  const { error } = await supabase.from("content_weeks").delete().eq("id", contentWeekId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/creative-direction");
+  revalidatePath("/planner");
+  revalidatePath("/");
+}
+
 export async function publishContentWeek(contentWeekId: string) {
   await requireStaff();
   const supabase = await createClient();

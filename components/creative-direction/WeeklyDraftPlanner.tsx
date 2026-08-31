@@ -5,6 +5,7 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   createDraftReel,
   createDraftReelLenient,
+  deleteContentWeek,
   deleteDraftReel,
   ensureDraftWeek,
   publishContentWeek,
@@ -136,6 +137,28 @@ export default function WeeklyDraftPlanner({
               className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               Publish week
+            </button>
+          )}
+          {contentWeek && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    `Delete this entire week's plan${reels.length > 0 ? ` and all ${reels.length} reel${reels.length === 1 ? "" : "s"} in it` : ""}? This can't be undone.`
+                  )
+                ) {
+                  return;
+                }
+                startTransition(async () => {
+                  await deleteContentWeek(contentWeek.id);
+                  router.refresh();
+                });
+              }}
+              className="rounded-md border border-danger/40 px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+            >
+              Delete week
             </button>
           )}
         </div>
