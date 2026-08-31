@@ -25,3 +25,42 @@ export async function signOutAction() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export type ChangePasswordState = { error: string | null };
+
+// Used both for the forced first-login flow (see app/(dashboard)/layout.tsx,
+// which redirects here whenever profile.must_change_password is true) and
+// as a normal "set a new password" action otherwise. Supabase trusts the
+// caller's active session as proof of identity here, so the old password
+// isn't re-entered — they just signed in with it moments ago.
+export async function updatePasswordAction(
+  _prevState: ChangePasswordState,
+  formData: FormData
+): Promise<ChangePasswordState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+
+  if (!password || password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  if (password !== confirmPassword) {
+    return { error: "Passwords don't match." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error: updateError } = await supabase.auth.updateUser({ password });
+  if (updateError) return { error: updateError.message };
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ must_change_password: false })
+    .eq("id", user.id);
+  if (profileError) return { error: profileError.message };
+
+  redirect("/");
+}

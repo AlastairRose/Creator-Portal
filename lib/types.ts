@@ -30,6 +30,7 @@ export type Profile = {
   display_name: string;
   role: Role;
   creator_id: string | null;
+  must_change_password: boolean;
   created_at: string;
   updated_at: string;
 };

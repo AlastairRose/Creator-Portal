@@ -6,6 +6,7 @@ import AppSidebar from "@/components/shared/AppSidebar";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
+  if (profile.must_change_password) redirect("/change-password");
 
   const isStaff = isStaffRole(profile.role);
   const isOwner = profile.role === "owner";

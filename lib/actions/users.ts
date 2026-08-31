@@ -115,6 +115,10 @@ export async function linkExistingUser(
     display_name: displayName,
     role,
     creator_id: creatorId,
+    // This account already has its own real password from elsewhere in the
+    // shared project (e.g. Outlier Engine) — not a temp one we picked, so
+    // don't force a change on next login the way inviteUser's do.
+    must_change_password: false,
   });
   if (profileError) {
     if (profileError.code === "23505") {
