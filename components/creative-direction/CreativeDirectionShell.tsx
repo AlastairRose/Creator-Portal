@@ -10,6 +10,7 @@ const TABS = [
   { href: "/creative-direction/rd", label: "R&D" },
   { href: "/creative-direction/ideas", label: "Ideas" },
   { href: "/creative-direction/ofcd", label: "OFCD" },
+  { href: "/creative-direction/ant-ena", label: "ANT-ena" },
 ];
 
 // R&D, Ideas, and OFCD are shared idea libraries, not scoped to one creator,

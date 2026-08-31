@@ -290,6 +290,39 @@ export type Idea = {
   updated_at: string;
 };
 
+// "ANT-ena" — a bank of upcoming worldwide cultural/entertainment/sporting
+// events for the creative director to plan content ideas around. Manual
+// entries land as 'confirmed' immediately; ones found by the weekly AI
+// search land as 'suggested' until a staff member approves or dismisses
+// them.
+export const CULTURAL_EVENT_REGIONS = [
+  "United States",
+  "United Kingdom",
+  "Canada",
+  "Europe",
+  "Australia",
+] as const;
+
+export type CulturalEventRegion = (typeof CULTURAL_EVENT_REGIONS)[number];
+
+export type CulturalEventStatus = "suggested" | "confirmed" | "dismissed";
+export type CulturalEventSource = "manual" | "ai_suggested";
+
+export type CulturalEvent = {
+  id: string;
+  title: string;
+  event_date: string; // YYYY-MM-DD
+  event_end_date: string | null;
+  category: string | null;
+  regions: string[];
+  description: string | null;
+  status: CulturalEventStatus;
+  source: CulturalEventSource;
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "twitter" | "youtube";
 
 export const SOCIAL_PLATFORMS: SocialPlatform[] = [

@@ -9,6 +9,7 @@ import type {
   CreatorSocialAccount,
   DashboardCreatorRow,
   DashboardWeekStats,
+  CulturalEvent,
   Idea,
   OfcdIdeaWithItems,
   OnlyfansContentRequestWithItems,
@@ -168,6 +169,16 @@ export async function getOfcdIdeas(): Promise<OfcdIdeaWithItems[]> {
     ...row,
     ofcd_idea_sexting_items: [...row.ofcd_idea_sexting_items].sort((a, b) => a.sort_order - b.sort_order),
   })) as OfcdIdeaWithItems[];
+}
+
+export async function getCulturalEvents(): Promise<CulturalEvent[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("cultural_events")
+    .select("*")
+    .order("event_date", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data as CulturalEvent[];
 }
 
 export async function getCreatorDriveLinks(creatorId: string): Promise<CreatorDriveLinks | null> {
