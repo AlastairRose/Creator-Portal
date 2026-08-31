@@ -10,6 +10,7 @@ import type {
   DashboardCreatorRow,
   DashboardWeekStats,
   Idea,
+  OfcdIdeaWithItems,
   OnlyfansContentRequestWithItems,
   OutstandingCustom,
   Profile,
@@ -154,6 +155,19 @@ export async function getOnlyfansRequests(creatorId: string): Promise<OnlyfansCo
     ...row,
     onlyfans_sexting_items: [...row.onlyfans_sexting_items].sort((a, b) => a.sort_order - b.sort_order),
   })) as OnlyfansContentRequestWithItems[];
+}
+
+export async function getOfcdIdeas(): Promise<OfcdIdeaWithItems[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ofcd_ideas")
+    .select("*, ofcd_idea_sexting_items(*)")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    ...row,
+    ofcd_idea_sexting_items: [...row.ofcd_idea_sexting_items].sort((a, b) => a.sort_order - b.sort_order),
+  })) as OfcdIdeaWithItems[];
 }
 
 export async function getCreatorDriveLinks(creatorId: string): Promise<CreatorDriveLinks | null> {

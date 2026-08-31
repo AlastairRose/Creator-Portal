@@ -162,6 +162,39 @@ export type OnlyfansContentRequestWithItems = OnlyfansContentRequest & {
   onlyfans_sexting_items: OnlyfansSextingItem[];
 };
 
+// OFCD: a staff-only bank of OnlyFans content ideas, not yet tied to a
+// creator. Same shape as OnlyfansContentRequest minus creator/urgency/status
+// (an idea isn't anyone's yet), plus a title used purely to identify it in
+// the library list.
+export type OfcdIdea = {
+  id: string;
+  title: string;
+  content_type: OnlyfansContentType;
+  description: string | null;
+  length: string | null;
+  sexting_drive_link: string | null;
+  sexting_storyline: string | null;
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OfcdIdeaSextingItem = {
+  id: string;
+  ofcd_idea_id: string;
+  content_label: string;
+  description: string | null;
+  length: string | null;
+  creator_required: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OfcdIdeaWithItems = OfcdIdea & {
+  ofcd_idea_sexting_items: OfcdIdeaSextingItem[];
+};
+
 // outstanding: creator's active to-do. to_do_later: not yet fully paid,
 // staff-only. uploaded: creator filmed/uploaded, now a staff-only "ready to
 // send" queue. sent: final state.

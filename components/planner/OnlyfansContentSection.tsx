@@ -11,6 +11,7 @@ import {
   type OnlyfansRequestFields,
 } from "@/lib/actions/onlyfans";
 import { updateOnlyfansDriveLink } from "@/lib/actions/creator-drive-links";
+import { saveOnlyfansRequestToOfcd } from "@/lib/actions/ofcd-ideas";
 import {
   CONTENT_REQUEST_URGENCY_LABELS,
   ONLYFANS_CONTENT_TYPE_LABELS,
@@ -60,9 +61,10 @@ export default function OnlyfansContentSection({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<OnlyfansContentRequestWithItems | null>(null);
 
-  const sortedRequests = [...requests].sort(compareRequests);
-  const openRequests = sortedRequests.filter((r) => r.status === "open");
-  const completedRequests = sortedRequests.filter((r) => r.status === "completed");
+  // Completed requests are dropped entirely once marked complete, not just
+  // styled differently — the list is meant to only ever show what's still
+  // outstanding.
+  const openRequests = [...requests].filter((r) => r.status === "open").sort(compareRequests);
   const columnCount = isStaff ? 7 : 6;
 
   return (
@@ -92,7 +94,7 @@ export default function OnlyfansContentSection({
             </tr>
           </thead>
           <tbody>
-            {[...openRequests, ...completedRequests].map((request) => (
+            {openRequests.map((request) => (
               <RequestRow
                 key={request.id}
                 request={request}
@@ -100,7 +102,7 @@ export default function OnlyfansContentSection({
                 onEdit={() => setEditingRequest(request)}
               />
             ))}
-            {requests.length === 0 && (
+            {openRequests.length === 0 && (
               <tr>
                 <td colSpan={columnCount} className="px-4 py-6 text-center text-muted">
                   Nothing logged yet.
@@ -226,6 +228,23 @@ function EditRequestModal({
   );
 }
 
+function requestToFields(request: OnlyfansContentRequestWithItems): OnlyfansRequestFields {
+  return {
+    content_type: request.content_type,
+    description: request.description,
+    length: request.length,
+    urgency: request.urgency,
+    sexting_drive_link: request.sexting_drive_link,
+    sexting_storyline: request.sexting_storyline,
+    sexting_items: request.onlyfans_sexting_items.map((item) => ({
+      content_label: item.content_label,
+      description: item.description,
+      length: item.length,
+      creator_required: item.creator_required,
+    })),
+  };
+}
+
 function RequestRow({
   request,
   isStaff,
@@ -239,6 +258,8 @@ function RequestRow({
   const [isPending, startTransition] = useTransition();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [savedToIdeas, setSavedToIdeas] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const dueTag = computeOnlyfansDueTag(request);
   const isSexting = request.content_type === "sexting";
   const isCompleted = request.status === "completed";
@@ -247,6 +268,20 @@ function RequestRow({
     startTransition(async () => {
       await updateOnlyfansRequestUrgency(request.id, urgency);
       router.refresh();
+    });
+  }
+
+  function saveToIdeas() {
+    startTransition(async () => {
+      try {
+        const title = request.description?.trim() || `${ONLYFANS_CONTENT_TYPE_LABELS[request.content_type]} idea`;
+        await saveOnlyfansRequestToOfcd(title, requestToFields(request));
+        setSaveError(null);
+        setSavedToIdeas(true);
+        setTimeout(() => setSavedToIdeas(false), 2500);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Couldn't save that.");
+      }
     });
   }
 
@@ -311,7 +346,17 @@ function RequestRow({
         </td>
         {isStaff && (
           <td className="px-4 py-3 text-right">
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              {savedToIdeas && <span className="text-xs text-success">Saved!</span>}
+              {saveError && <span className="text-xs text-danger">{saveError}</span>}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={saveToIdeas}
+                className="text-xs text-muted hover:text-foreground disabled:opacity-50"
+              >
+                Add to OFCD
+              </button>
               <button
                 type="button"
                 disabled={isPending}
