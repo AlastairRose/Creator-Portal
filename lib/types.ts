@@ -236,12 +236,16 @@ export type OutstandingCustom = {
 
 export type CustomUrgency = "on_track" | "due" | "overdue";
 
-export type WinningIdea = {
+// "Winning 30": a per-creator bank of previously winning reels worth
+// reposting, sorted oldest-last_posted_date-first wherever it's read so the
+// most overdue-for-a-repost sits at the top.
+export type WinningReel = {
   id: string;
-  creator_id: string | null;
-  source_reel_id: string | null;
+  creator_id: string;
   title: string;
-  description: string | null;
+  original_link: string | null;
+  footage_link: string | null;
+  last_posted_date: string; // YYYY-MM-DD
   added_by: string | null;
   created_at: string;
   updated_at: string;

@@ -7,6 +7,7 @@ import type { Creator } from "@/lib/types";
 const TABS = [
   { href: "/creative-direction", label: "Reel Planner" },
   { href: "/creative-direction/overall-plan", label: "Overall Plan" },
+  { href: "/creative-direction/winning-30", label: "Winning 30" },
   { href: "/creative-direction/rd", label: "R&D" },
   { href: "/creative-direction/ideas", label: "Ideas" },
   { href: "/creative-direction/ant-ena", label: "ANT-ena" },
@@ -15,8 +16,13 @@ const TABS = [
 // R&D, Ideas, and ANT-ena are shared idea libraries, not scoped to one
 // creator, so they don't need (and would be misleading next to) the creator
 // selector — each pushes to whichever creator is picked in its own "Add to
-// plan" step instead.
-const CREATOR_SCOPED_TABS = new Set(["/creative-direction", "/creative-direction/overall-plan"]);
+// plan" step instead. Reel Planner, Overall Plan, and Winning 30 are all
+// scoped to whichever creator is selected here.
+const CREATOR_SCOPED_TABS = new Set([
+  "/creative-direction",
+  "/creative-direction/overall-plan",
+  "/creative-direction/winning-30",
+]);
 
 export default function CreativeDirectionShell({
   creators,

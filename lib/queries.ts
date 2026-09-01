@@ -19,6 +19,7 @@ import type {
   Reel,
   Report,
   ReportPeriodType,
+  WinningReel,
 } from "@/lib/types";
 
 export async function getProfiles(): Promise<Profile[]> {
@@ -142,6 +143,19 @@ export async function getCreatorPlan(creatorId: string): Promise<CreatorPlan | n
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data as CreatorPlan | null;
+}
+
+// Oldest last_posted_date first — the most overdue-for-a-repost reel sits
+// at the top, whatever was just reposted drops to the bottom.
+export async function getWinningReels(creatorId: string): Promise<WinningReel[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("winning_reels")
+    .select("*")
+    .eq("creator_id", creatorId)
+    .order("last_posted_date", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data as WinningReel[];
 }
 
 export async function getOnlyfansRequests(creatorId: string): Promise<OnlyfansContentRequestWithItems[]> {
