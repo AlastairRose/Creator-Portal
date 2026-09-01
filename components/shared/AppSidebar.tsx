@@ -21,7 +21,10 @@ export default function AppSidebar({
   return (
     <>
       <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
-        <span className="text-sm font-semibold tracking-tight">Creator Portal</span>
+        <div className="flex items-center gap-2">
+          <Image src="/logo.png" alt="Lola's Bunny Collective" width={28} height={29} priority />
+          <span className="text-sm font-semibold tracking-tight">Creator Portal</span>
+        </div>
         <button
           type="button"
           onClick={() => setOpen(true)}
