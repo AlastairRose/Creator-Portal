@@ -1,7 +1,9 @@
+import { requireStaff } from "@/lib/roles";
 import { getCreators, getOfcdIdeas } from "@/lib/queries";
 import OfcdIdeaBoard from "@/components/creative-direction/OfcdIdeaBoard";
 
 export default async function OfcdPage() {
+  await requireStaff();
   const [ideas, creators] = await Promise.all([getOfcdIdeas(), getCreators()]);
 
   return (

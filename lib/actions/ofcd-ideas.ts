@@ -69,7 +69,7 @@ export async function createOfcdIdea(fields: OfcdIdeaFields) {
     if (itemsError) throw new Error(itemsError.message);
   }
 
-  revalidatePath("/creative-direction/ofcd");
+  revalidatePath("/ofcd");
 }
 
 export async function updateOfcdIdea(id: string, fields: OfcdIdeaFields) {
@@ -90,7 +90,7 @@ export async function updateOfcdIdea(id: string, fields: OfcdIdeaFields) {
     if (itemsError) throw new Error(itemsError.message);
   }
 
-  revalidatePath("/creative-direction/ofcd");
+  revalidatePath("/ofcd");
 }
 
 export async function deleteOfcdIdea(id: string) {
@@ -98,7 +98,7 @@ export async function deleteOfcdIdea(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("ofcd_ideas").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  revalidatePath("/creative-direction/ofcd");
+  revalidatePath("/ofcd");
 }
 
 // "Add to creator plan": creates a real request for the chosen creator via

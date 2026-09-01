@@ -15,6 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     { href: "/", label: "Dashboard" },
     { href: "/planner", label: "Content Planner" },
     ...(isStaff ? [{ href: "/creative-direction", label: "Creative Direction" }] : []),
+    ...(isStaff ? [{ href: "/ofcd", label: "OFCD" }] : []),
     { href: "/reports", label: "Reports" },
     ...(isStaff ? [{ href: "/admin/creators", label: "Creators" }] : []),
     ...(isStaff ? [{ href: "/admin/intake-links", label: "Custom Request Links" }] : []),
