@@ -19,7 +19,6 @@ type SuggestedEvent = {
 // that fails fast well inside that budget rather than letting Vercel kill
 // it uncleanly right at the edge.
 const REQUEST_TIMEOUT_MS = 45_000;
-const MAX_SEARCHES = 4;
 
 function getClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -27,31 +26,28 @@ function getClient() {
   return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS });
 }
 
-// Asks Claude to search the web for what's coming up and return strict
-// JSON. Web search is a server-executed tool — Anthropic runs the searches
-// and feeds results back within this single API call, so there's no
-// multi-turn tool loop to manage here.
-async function searchForCulturalEvents(existingTitles: string[]): Promise<SuggestedEvent[]> {
+// Shared by the weekly "what's coming up" search and the one-off holidays
+// prefill — only the prompt/budget/tool differ. Web search is a
+// server-executed tool — Anthropic runs the searches and feeds results back
+// within this single API call, so there's no multi-turn tool loop to manage
+// here. Passing maxSearches=0 skips the tool entirely for a plain-knowledge
+// answer — searching for things the model already knows deterministically
+// (fixed-date holidays) only adds time without adding accuracy, and in
+// testing, asking it to *verify* several distinct dates via search proved
+// unreliable, repeatedly exceeding the request timeout.
+async function runSearchPrompt(prompt: string, maxSearches: number, maxTokens: number): Promise<SuggestedEvent[]> {
   const client = getClient();
-  const today = new Date().toISOString().slice(0, 10);
-
-  const prompt = `Search the web and find major worldwide cultural, entertainment, sporting, and gaming events happening between ${today} and 10 weeks from now that would be widely talked about on social media in the United States, United Kingdom, Canada, Europe, and Australia. Think: major sporting finals/tournaments, big video game or album releases, awards shows, major holidays, and similarly viral cultural moments — the kind of thing a social media content team would want to plan posts around.
-
-Work quickly: do no more than ${MAX_SEARCHES} focused web searches total, then answer immediately from what you found — this needs to finish in well under a minute, so do not keep researching past that.
-
-Skip anything already in this list: ${existingTitles.length > 0 ? existingTitles.join(", ") : "(none yet)"}.
-
-Respond with ONLY a JSON array (no other text before or after) of objects with this exact shape:
-[{"title": string, "event_date": "YYYY-MM-DD", "event_end_date": "YYYY-MM-DD" or null, "category": string, "regions": array of one or more of ${JSON.stringify(CULTURAL_EVENT_REGIONS)}, "description": a one-sentence note on why it's culturally relevant}]`;
 
   const response = await client.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 2048,
+    max_tokens: maxTokens,
     // Extended thinking was eating almost the whole output budget on a
     // plain extraction task like this, leaving nothing for the actual
     // JSON answer — disabled so every output token goes to the result.
     thinking: { type: "disabled" },
-    tools: [{ type: "web_search_20260318", name: "web_search", max_uses: MAX_SEARCHES }],
+    ...(maxSearches > 0
+      ? { tools: [{ type: "web_search_20260318" as const, name: "web_search" as const, max_uses: maxSearches }] }
+      : {}),
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -81,18 +77,13 @@ Respond with ONLY a JSON array (no other text before or after) of objects with t
     }));
 }
 
-// Shared by the "Search now" server action and the weekly cron route —
-// only the Supabase client differs (request-scoped vs. admin/service-role,
-// since a cron invocation has no signed-in session to carry RLS).
-export async function runCulturalEventsSearch(
+async function insertNewEvents(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any, any, any>
+  supabase: SupabaseClient<any, any, any>,
+  found: SuggestedEvent[],
+  existingTitles: string[],
+  status: "suggested" | "confirmed"
 ): Promise<number> {
-  const { data: existing, error: existingError } = await supabase.from("cultural_events").select("title");
-  if (existingError) throw new Error(existingError.message);
-  const existingTitles = (existing ?? []).map((e) => e.title as string);
-
-  const found = await searchForCulturalEvents(existingTitles);
   const newOnes = found.filter(
     (event) => !existingTitles.some((title) => title.toLowerCase() === event.title.toLowerCase())
   );
@@ -101,11 +92,70 @@ export async function runCulturalEventsSearch(
   const { error: insertError } = await supabase.from("cultural_events").insert(
     newOnes.map((event) => ({
       ...event,
-      status: "suggested",
+      status,
       source: "ai_suggested",
     }))
   );
   if (insertError) throw new Error(insertError.message);
 
   return newOnes.length;
+}
+
+// Shared by the "Search now" server action and the weekly cron route —
+// only the Supabase client differs (request-scoped vs. admin/service-role,
+// since a cron invocation has no signed-in session to carry RLS). Finds
+// one-off, dated news-shaped events in the next 10 weeks; lands as
+// "suggested" since these are speculative and worth a quick staff glance.
+export async function runCulturalEventsSearch(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>
+): Promise<number> {
+  const { data: existing, error: existingError } = await supabase.from("cultural_events").select("title");
+  if (existingError) throw new Error(existingError.message);
+  const existingTitles = (existing ?? []).map((e) => e.title as string);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `Search the web and find major worldwide cultural, entertainment, sporting, and gaming events happening between ${today} and 10 weeks from now that would be widely talked about on social media in the United States, United Kingdom, Canada, Europe, and Australia. Think: major sporting finals/tournaments, big video game or album releases, awards shows, major holidays, and similarly viral cultural moments — the kind of thing a social media content team would want to plan posts around.
+
+Work quickly: do no more than 4 focused web searches total, then answer immediately from what you found — this needs to finish in well under a minute, so do not keep researching past that.
+
+Skip anything already in this list: ${existingTitles.length > 0 ? existingTitles.join(", ") : "(none yet)"}.
+
+Respond with ONLY a JSON array (no other text before or after) of objects with this exact shape:
+[{"title": string, "event_date": "YYYY-MM-DD", "event_end_date": "YYYY-MM-DD" or null, "category": string, "regions": array of one or more of ${JSON.stringify(CULTURAL_EVENT_REGIONS)}, "description": a one-sentence note on why it's culturally relevant}]`;
+
+  const found = await runSearchPrompt(prompt, 4, 2048);
+  return insertNewEvents(supabase, found, existingTitles, "suggested");
+}
+
+// One-off (or occasional re-run) prefill: recurring annual holidays and
+// cultural touchpoints with knowable dates, covering a full rolling year —
+// Christmas, Easter, Eurovision, the Super Bowl, etc. Unlike the weekly
+// search these land straight as "confirmed", since they're well-established
+// facts rather than speculative news, and the point is to hand the creative
+// director a ready-to-use calendar immediately.
+export async function runHolidaysSeed(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>
+): Promise<number> {
+  const { data: existing, error: existingError } = await supabase.from("cultural_events").select("title");
+  if (existingError) throw new Error(existingError.message);
+  const existingTitles = (existing ?? []).map((e) => e.title as string);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `List major RECURRING ANNUAL holidays and cultural touchpoints relevant to social media content in the United States, United Kingdom, Canada, Europe, and Australia, covering the rolling 12 months starting ${today}. Give each its actual date for the upcoming occurrence (use next year if this year's has already passed).
+
+Include fixed/simply-computed-date ones: Christmas, Boxing Day, New Year's Eve, New Year's Day, Valentine's Day, St Patrick's Day, Halloween, US Thanksgiving, Canadian Thanksgiving, Black Friday, Cyber Monday, US Independence Day, Canada Day, Australia Day, Bonfire Night (UK), Pride Month (start), US/Canada/Australia Mother's Day, UK Mother's Day (Mothering Sunday — different date), Father's Day, US Memorial Day, US Labor Day.
+
+Also include these variable-date ones using your best current knowledge of the upcoming occurrence: Easter Sunday, the Super Bowl, the Oscars (Academy Awards), the Grammys, the Eurovision Song Contest, the start of Wimbledon. For these specific ones only, add "(verify closer to the date)" at the end of the description since the exact date this far out may shift.
+
+Do not use any tool — answer directly from what you know.
+
+Skip anything already in this list: ${existingTitles.length > 0 ? existingTitles.join(", ") : "(none yet)"}.
+
+Respond with ONLY a JSON array (no other text before or after) of objects with this exact shape:
+[{"title": string, "event_date": "YYYY-MM-DD", "event_end_date": "YYYY-MM-DD" or null, "category": string, "regions": array of one or more of ${JSON.stringify(CULTURAL_EVENT_REGIONS)}, "description": a one-sentence note on why it's culturally relevant}]`;
+
+  const found = await runSearchPrompt(prompt, 0, 4096);
+  return insertNewEvents(supabase, found, existingTitles, "confirmed");
 }

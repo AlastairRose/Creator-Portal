@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
-import { runCulturalEventsSearch } from "@/lib/cultural-events-search";
+import { runCulturalEventsSearch, runHolidaysSeed } from "@/lib/cultural-events-search";
 import type { CulturalEventStatus } from "@/lib/types";
 
 export type CulturalEventFields = {
@@ -72,6 +72,19 @@ export async function searchForNewEventsAction(): Promise<number> {
   await requireStaff();
   const supabase = await createClient();
   const count = await runCulturalEventsSearch(supabase);
+  revalidatePath("/creative-direction/ant-ena");
+  return count;
+}
+
+// The "Prefill holidays" button — recurring annual holidays/touchpoints,
+// landing straight as "confirmed" rather than "suggested" since these are
+// well-established facts, not speculative news. Safe to re-run any time
+// (e.g. once a year for the next 12 months) — it skips anything whose title
+// already exists.
+export async function seedHolidaysAction(): Promise<number> {
+  await requireStaff();
+  const supabase = await createClient();
+  const count = await runHolidaysSeed(supabase);
   revalidatePath("/creative-direction/ant-ena");
   return count;
 }

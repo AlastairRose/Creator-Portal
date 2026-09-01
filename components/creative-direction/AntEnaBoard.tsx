@@ -6,6 +6,7 @@ import {
   createCulturalEvent,
   deleteCulturalEvent,
   searchForNewEventsAction,
+  seedHolidaysAction,
   setCulturalEventStatus,
   updateCulturalEvent,
   type CulturalEventFields,
@@ -49,6 +50,9 @@ export default function AntEnaBoard({ events }: { events: CulturalEvent[] }) {
   const [isSearching, startSearch] = useTransition();
   const [searchResult, setSearchResult] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSeeding, startSeed] = useTransition();
+  const [seedResult, setSeedResult] = useState<string | null>(null);
+  const [seedError, setSeedError] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CulturalEvent | null>(null);
 
@@ -70,6 +74,20 @@ export default function AntEnaBoard({ events }: { events: CulturalEvent[] }) {
     });
   }
 
+  function runSeed() {
+    startSeed(async () => {
+      try {
+        const count = await seedHolidaysAction();
+        setSeedError(null);
+        setSeedResult(count === 0 ? "Already up to date." : `Added ${count} holiday${count === 1 ? "" : "s"}.`);
+        router.refresh();
+      } catch (err) {
+        setSeedResult(null);
+        setSeedError(err instanceof Error ? err.message : "Couldn't prefill holidays.");
+      }
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -83,6 +101,14 @@ export default function AntEnaBoard({ events }: { events: CulturalEvent[] }) {
         </button>
         <button
           type="button"
+          disabled={isSeeding}
+          onClick={runSeed}
+          className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-raised disabled:opacity-50"
+        >
+          {isSeeding ? "Prefilling…" : "Prefill holidays"}
+        </button>
+        <button
+          type="button"
           onClick={() => setIsAddOpen(true)}
           className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-raised"
         >
@@ -90,6 +116,8 @@ export default function AntEnaBoard({ events }: { events: CulturalEvent[] }) {
         </button>
         {searchResult && <span className="text-xs text-success">{searchResult}</span>}
         {searchError && <span className="text-xs text-danger">{searchError}</span>}
+        {seedResult && <span className="text-xs text-success">{seedResult}</span>}
+        {seedError && <span className="text-xs text-danger">{seedError}</span>}
       </div>
 
       <div className="flex gap-1 border-b border-border">
