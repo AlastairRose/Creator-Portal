@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AuthState = { error: string | null };
 
@@ -56,7 +57,15 @@ export async function updatePasswordAction(
   const { error: updateError } = await supabase.auth.updateUser({ password });
   if (updateError) return { error: updateError.message };
 
-  const { error: profileError } = await supabase
+  // profiles' RLS only lets an owner update any row (including their own) —
+  // a creator or non-owner staff member clearing their own flag here would
+  // otherwise be silently blocked (0 rows affected, no error), leaving
+  // must_change_password stuck at true and looping them straight back to
+  // this page forever. The admin client bypasses that; `user` above is
+  // already a verified identity from this same session, and the update is
+  // scoped to their own id, so this only ever clears the caller's own flag.
+  const admin = createAdminClient();
+  const { error: profileError } = await admin
     .from("profiles")
     .update({ must_change_password: false })
     .eq("id", user.id);
