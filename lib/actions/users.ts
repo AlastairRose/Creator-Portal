@@ -142,6 +142,28 @@ export async function updateUserRole(profileId: string, role: Role, creatorId: s
   revalidatePath("/admin/users");
 }
 
+// Owner-only: for someone locked out (forgot the temp password, or got
+// stuck partway through setting their own) — sets a fresh temp password the
+// owner shares with them directly, same as the original invite, and flags
+// the account to go through the "set your own password" prompt again on
+// next login.
+export async function resetUserPassword(profileId: string, newPassword: string) {
+  await requireOwner();
+  if (newPassword.length < 8) throw new Error("Temporary password must be at least 8 characters.");
+
+  const admin = createAdminClient();
+  const { error: authError } = await admin.auth.admin.updateUserById(profileId, { password: newPassword });
+  if (authError) throw new Error(authError.message);
+
+  const { error: profileError } = await admin
+    .from("profiles")
+    .update({ must_change_password: true })
+    .eq("id", profileId);
+  if (profileError) throw new Error(profileError.message);
+
+  revalidatePath("/admin/users");
+}
+
 export async function removeUser(profileId: string) {
   await requireOwner();
   const admin = createAdminClient();
