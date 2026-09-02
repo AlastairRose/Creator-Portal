@@ -7,6 +7,7 @@ import {
   deleteWinningReel,
   fetchViralCandidates,
   importWinningReels,
+  setWinningReelLastPostedDate,
   setWinningReelScheduledDate,
   updateWinningReel,
   type WinningReelFields,
@@ -21,6 +22,7 @@ function emptyFields(): WinningReelFields {
     original_link: null,
     footage_link: null,
     scheduled_for: new Date().toISOString().slice(0, 10),
+    last_posted_date: null,
   };
 }
 
@@ -30,6 +32,7 @@ function fieldsFromReel(reel: WinningReel): WinningReelFields {
     original_link: reel.original_link,
     footage_link: reel.footage_link,
     scheduled_for: reel.scheduled_for,
+    last_posted_date: reel.last_posted_date,
   };
 }
 
@@ -65,6 +68,7 @@ export default function Winning30Board({ creatorId, reels }: { creatorId: string
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Original</th>
               <th className="px-4 py-3 font-medium">Footage</th>
+              <th className="px-4 py-3 font-medium">Last posted</th>
               <th className="px-4 py-3 font-medium">Scheduled for</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
@@ -75,7 +79,7 @@ export default function Winning30Board({ creatorId, reels }: { creatorId: string
             ))}
             {reels.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-muted">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted">
                   No winning reels saved yet.
                 </td>
               </tr>
@@ -264,11 +268,20 @@ function ReelRow({ reel, onEdit }: { reel: WinningReel; onEdit: () => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [date, setDate] = useState(reel.scheduled_for);
+  const [lastPosted, setLastPosted] = useState(reel.last_posted_date ?? "");
 
   function saveDate(nextDate: string) {
     if (!nextDate || nextDate === reel.scheduled_for) return;
     startTransition(async () => {
       await setWinningReelScheduledDate(reel.id, nextDate);
+      router.refresh();
+    });
+  }
+
+  function saveLastPosted(nextDate: string) {
+    if (nextDate === (reel.last_posted_date ?? "")) return;
+    startTransition(async () => {
+      await setWinningReelLastPostedDate(reel.id, nextDate || null);
       router.refresh();
     });
   }
@@ -300,6 +313,16 @@ function ReelRow({ reel, onEdit }: { reel: WinningReel; onEdit: () => void }) {
         ) : (
           <span className="text-muted">—</span>
         )}
+      </td>
+      <td className="px-4 py-3">
+        <input
+          type="date"
+          value={lastPosted}
+          onChange={(e) => setLastPosted(e.target.value)}
+          onBlur={(e) => saveLastPosted(e.target.value)}
+          disabled={isPending}
+          className="rounded-md border border-border bg-surface-raised px-2 py-1.5 text-sm outline-none focus:border-accent disabled:opacity-70"
+        />
       </td>
       <td className="px-4 py-3">
         <input
@@ -394,6 +417,16 @@ function ReelFormModal({
             onChange={(e) => setFields({ ...fields, footage_link: e.target.value })}
             disabled={isPending}
             placeholder="Where the raw footage lives in the shared Drive"
+            className={textFieldClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">Last posted</label>
+          <input
+            type="date"
+            value={fields.last_posted_date ?? ""}
+            onChange={(e) => setFields({ ...fields, last_posted_date: e.target.value || null })}
+            disabled={isPending}
             className={textFieldClass}
           />
         </div>

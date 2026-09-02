@@ -10,6 +10,7 @@ export type WinningReelFields = {
   original_link: string | null;
   footage_link: string | null;
   scheduled_for: string;
+  last_posted_date: string | null;
 };
 
 function normalizeFields(fields: WinningReelFields) {
@@ -20,6 +21,7 @@ function normalizeFields(fields: WinningReelFields) {
     original_link: fields.original_link?.trim() || null,
     footage_link: fields.footage_link?.trim() || null,
     scheduled_for: fields.scheduled_for,
+    last_posted_date: fields.last_posted_date || null,
   };
 }
 
@@ -54,6 +56,16 @@ export async function setWinningReelScheduledDate(id: string, date: string) {
   revalidatePath("/creative-direction/winning-30");
 }
 
+// Quick update from the inline "Last posted" date picker on each row —
+// records when it was actually (re)posted. Clearable back to null.
+export async function setWinningReelLastPostedDate(id: string, date: string | null) {
+  await requireStaff();
+  const supabase = await createClient();
+  const { error } = await supabase.from("winning_reels").update({ last_posted_date: date || null }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/creative-direction/winning-30");
+}
+
 export async function deleteWinningReel(id: string) {
   await requireStaff();
   const supabase = await createClient();
@@ -80,8 +92,10 @@ export async function fetchViralCandidates(creatorId: string): Promise<ViralPost
 }
 
 // Bulk-adds the staff-selected candidates as new Winning 30 entries —
-// scheduled_for starts at the post's actual post date (staff reschedule it
-// to a real upcoming date afterward via the inline picker).
+// last_posted_date is set to the post's actual post date (that's the last
+// time it went out), and scheduled_for starts there too as a placeholder
+// (staff reschedule it to a real upcoming date afterward via the inline
+// picker).
 export async function importWinningReels(creatorId: string, candidates: ViralPostCandidate[]) {
   const profile = await requireStaff();
   if (candidates.length === 0) return;
@@ -95,6 +109,7 @@ export async function importWinningReels(creatorId: string, candidates: ViralPos
       original_link: c.originalLink,
       footage_link: null,
       scheduled_for: c.datePosted,
+      last_posted_date: c.datePosted,
     }))
   );
   if (error) throw new Error(error.message);

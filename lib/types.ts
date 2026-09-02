@@ -246,6 +246,7 @@ export type WinningReel = {
   original_link: string | null;
   footage_link: string | null;
   scheduled_for: string; // YYYY-MM-DD
+  last_posted_date: string | null; // YYYY-MM-DD, null until it's actually been (re)posted
   added_by: string | null;
   created_at: string;
   updated_at: string;
