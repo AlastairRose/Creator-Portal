@@ -1,14 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   createWinningReel,
   deleteWinningReel,
+  fetchViralCandidates,
+  importWinningReels,
   markWinningReelPostedToday,
   updateWinningReel,
   type WinningReelFields,
 } from "@/lib/actions/winning-reels";
+import type { ViralPostCandidate } from "@/lib/outlier-import";
 import type { WinningReel } from "@/lib/types";
 import Modal from "@/components/shared/Modal";
 
@@ -34,16 +37,26 @@ export default function Winning30Board({ creatorId, reels }: { creatorId: string
   const router = useRouter();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingReel, setEditingReel] = useState<WinningReel | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
-      <button
-        type="button"
-        onClick={() => setIsAddOpen(true)}
-        className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-      >
-        + Add winner
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => setIsAddOpen(true)}
+          className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+        >
+          + Add winner
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsImportOpen(true)}
+          className="self-start rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-raised"
+        >
+          Import from Outlier Engine
+        </button>
+      </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
@@ -98,7 +111,152 @@ export default function Winning30Board({ creatorId, reels }: { creatorId: string
           }}
         />
       )}
+
+      {isImportOpen && (
+        <ImportModal
+          creatorId={creatorId}
+          onClose={() => setIsImportOpen(false)}
+          onSaved={() => {
+            setIsImportOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ImportModal({
+  creatorId,
+  onClose,
+  onSaved,
+}: {
+  creatorId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [candidates, setCandidates] = useState<ViralPostCandidate[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchViralCandidates(creatorId)
+      .then((found) => {
+        if (!active) return;
+        setCandidates(found);
+        setSelected(new Set(found.map((c) => c.postId)));
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : "Couldn't load candidates.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function toggle(postId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  }
+
+  function submit() {
+    const chosen = candidates.filter((c) => selected.has(c.postId));
+    startTransition(async () => {
+      try {
+        await importWinningReels(creatorId, chosen);
+        setError(null);
+        onSaved();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't import those reels.");
+      }
+    });
+  }
+
+  return (
+    <Modal title="Import viral reels from Outlier Engine" onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="text-xs text-muted">
+          Reels flagged viral (10x+ their own baseline) that aren&apos;t already in this list. The
+          Drive footage link isn&apos;t known to Outlier Engine, so add it by hand afterward.
+        </p>
+
+        {isLoading ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : candidates.length === 0 ? (
+          <p className="text-sm text-muted">No new viral reels found.</p>
+        ) : (
+          <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
+                  <th className="w-10 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selected.size === candidates.length}
+                      onChange={(e) =>
+                        setSelected(e.target.checked ? new Set(candidates.map((c) => c.postId)) : new Set())
+                      }
+                    />
+                  </th>
+                  <th className="px-3 py-2 font-medium">Title</th>
+                  <th className="px-3 py-2 font-medium">Posted</th>
+                  <th className="px-3 py-2 font-medium">Views</th>
+                  <th className="px-3 py-2 font-medium">Multiplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((c) => (
+                  <tr key={c.postId} className="border-t border-border">
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(c.postId)}
+                        onChange={() => toggle(c.postId)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <a href={c.originalLink} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                        {c.title}
+                      </a>
+                    </td>
+                    <td className="px-3 py-2 text-muted">{c.datePosted}</td>
+                    <td className="px-3 py-2 text-muted">{c.views.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-muted">{c.multiplier.toFixed(1)}x</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {error && <p className="text-xs text-danger">{error}</p>}
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            disabled={isPending || isLoading || selected.size === 0}
+            onClick={submit}
+            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            Add {selected.size > 0 ? selected.size : ""} selected
+          </button>
+          <button type="button" onClick={onClose} className="text-sm text-muted hover:text-foreground">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
