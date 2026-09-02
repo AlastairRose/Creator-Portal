@@ -79,7 +79,14 @@ export async function getViralReelCandidates(creatorId: string): Promise<ViralPo
     .in("post_type", ["reel", "trial_reel"]);
   if (postsError) throw new Error(postsError.message);
 
-  const reelPosts = (posts ?? []) as SharedPost[];
+  // `views` is a bigint column — PostgREST (and so supabase-js) hands it
+  // back as a JSON string, not a number, to avoid precision loss. Coercing
+  // it here, once, keeps every downstream number a real JS number: left as
+  // a string, `median()`'s (a + b) / 2 branch silently string-concatenates
+  // instead of adding (e.g. "22912" + "23000" = "2291223000") — which is
+  // exactly the bug that made every baseline come out looking like hundreds
+  // of millions of views on the first pass at this.
+  const reelPosts = (posts ?? []).map((p) => ({ ...p, views: Number(p.views) })) as SharedPost[];
   const byType: Record<string, SharedPost[]> = {};
   for (const post of reelPosts) {
     (byType[post.post_type] ??= []).push(post);
