@@ -19,6 +19,7 @@ import type {
   Reel,
   Report,
   ReportPeriodType,
+  Sop,
   WinningReel,
 } from "@/lib/types";
 
@@ -193,6 +194,17 @@ export async function getCulturalEvents(): Promise<CulturalEvent[]> {
     .order("event_date", { ascending: true });
   if (error) throw new Error(error.message);
   return data as CulturalEvent[];
+}
+
+export async function getSops(): Promise<Sop[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sops")
+    .select("*")
+    .order("category", { ascending: true, nullsFirst: false })
+    .order("title", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data as Sop[];
 }
 
 export async function getCreatorDriveLinks(creatorId: string): Promise<CreatorDriveLinks | null> {

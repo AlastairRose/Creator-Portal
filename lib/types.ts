@@ -393,3 +393,18 @@ export type Report = {
   created_at: string;
   updated_at: string;
 };
+
+// Staff-only library of SOP documents/guides — an uploaded document and/or
+// a video link, per entry.
+export type Sop = {
+  id: string;
+  title: string;
+  category: string | null;
+  description: string | null;
+  document_path: string | null; // storage object path in the 'sop-documents' bucket
+  document_filename: string | null;
+  video_link: string | null;
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
