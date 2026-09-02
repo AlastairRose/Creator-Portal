@@ -9,17 +9,17 @@ export type WinningReelFields = {
   title: string;
   original_link: string | null;
   footage_link: string | null;
-  last_posted_date: string;
+  scheduled_for: string;
 };
 
 function normalizeFields(fields: WinningReelFields) {
   if (!fields.title.trim()) throw new Error("Give the reel a title.");
-  if (!fields.last_posted_date) throw new Error("Pick a last posted date.");
+  if (!fields.scheduled_for) throw new Error("Pick a scheduled date.");
   return {
     title: fields.title.trim(),
     original_link: fields.original_link?.trim() || null,
     footage_link: fields.footage_link?.trim() || null,
-    last_posted_date: fields.last_posted_date,
+    scheduled_for: fields.scheduled_for,
   };
 }
 
@@ -43,15 +43,13 @@ export async function updateWinningReel(id: string, fields: WinningReelFields) {
   revalidatePath("/creative-direction/winning-30");
 }
 
-// The everyday action: reposted it today, so it drops to the bottom of the
-// queue and whatever's now oldest floats to the top.
-export async function markWinningReelPostedToday(id: string) {
+// Quick reschedule from the inline date picker on each row — picking a new
+// date re-sorts it in place (soonest scheduled_for always at the top).
+export async function setWinningReelScheduledDate(id: string, date: string) {
   await requireStaff();
+  if (!date) throw new Error("Pick a date.");
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("winning_reels")
-    .update({ last_posted_date: new Date().toISOString().slice(0, 10) })
-    .eq("id", id);
+  const { error } = await supabase.from("winning_reels").update({ scheduled_for: date }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/creative-direction/winning-30");
 }
@@ -82,8 +80,8 @@ export async function fetchViralCandidates(creatorId: string): Promise<ViralPost
 }
 
 // Bulk-adds the staff-selected candidates as new Winning 30 entries —
-// last_posted_date starts at the post's actual post date, since that's the
-// last known "posted" event before any manual repost tracking begins.
+// scheduled_for starts at the post's actual post date (staff reschedule it
+// to a real upcoming date afterward via the inline picker).
 export async function importWinningReels(creatorId: string, candidates: ViralPostCandidate[]) {
   const profile = await requireStaff();
   if (candidates.length === 0) return;
@@ -96,7 +94,7 @@ export async function importWinningReels(creatorId: string, candidates: ViralPos
       title: c.title,
       original_link: c.originalLink,
       footage_link: null,
-      last_posted_date: c.datePosted,
+      scheduled_for: c.datePosted,
     }))
   );
   if (error) throw new Error(error.message);

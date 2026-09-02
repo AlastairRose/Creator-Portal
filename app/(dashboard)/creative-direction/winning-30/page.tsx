@@ -21,7 +21,7 @@ export default async function Winning30Page({
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Winning 30</h1>
         <p className="mt-1 text-sm text-muted">
-          Previous winning reels worth reposting for {creator.name}, oldest last posted at the top.
+          Previous winning reels worth reposting for {creator.name}, soonest scheduled at the top.
         </p>
       </div>
 

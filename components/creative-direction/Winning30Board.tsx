@@ -7,7 +7,7 @@ import {
   deleteWinningReel,
   fetchViralCandidates,
   importWinningReels,
-  markWinningReelPostedToday,
+  setWinningReelScheduledDate,
   updateWinningReel,
   type WinningReelFields,
 } from "@/lib/actions/winning-reels";
@@ -20,7 +20,7 @@ function emptyFields(): WinningReelFields {
     title: "",
     original_link: null,
     footage_link: null,
-    last_posted_date: new Date().toISOString().slice(0, 10),
+    scheduled_for: new Date().toISOString().slice(0, 10),
   };
 }
 
@@ -29,7 +29,7 @@ function fieldsFromReel(reel: WinningReel): WinningReelFields {
     title: reel.title,
     original_link: reel.original_link,
     footage_link: reel.footage_link,
-    last_posted_date: reel.last_posted_date,
+    scheduled_for: reel.scheduled_for,
   };
 }
 
@@ -65,7 +65,7 @@ export default function Winning30Board({ creatorId, reels }: { creatorId: string
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Original</th>
               <th className="px-4 py-3 font-medium">Footage</th>
-              <th className="px-4 py-3 font-medium">Last posted</th>
+              <th className="px-4 py-3 font-medium">Scheduled for</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
@@ -263,10 +263,12 @@ function ImportModal({
 function ReelRow({ reel, onEdit }: { reel: WinningReel; onEdit: () => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [date, setDate] = useState(reel.scheduled_for);
 
-  function markPostedToday() {
+  function saveDate(nextDate: string) {
+    if (!nextDate || nextDate === reel.scheduled_for) return;
     startTransition(async () => {
-      await markWinningReelPostedToday(reel.id);
+      await setWinningReelScheduledDate(reel.id, nextDate);
       router.refresh();
     });
   }
@@ -299,17 +301,18 @@ function ReelRow({ reel, onEdit }: { reel: WinningReel; onEdit: () => void }) {
           <span className="text-muted">—</span>
         )}
       </td>
-      <td className="px-4 py-3 text-muted">{reel.last_posted_date}</td>
+      <td className="px-4 py-3">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          onBlur={(e) => saveDate(e.target.value)}
+          disabled={isPending}
+          className="rounded-md border border-border bg-surface-raised px-2 py-1.5 text-sm outline-none focus:border-accent disabled:opacity-70"
+        />
+      </td>
       <td className="px-4 py-3 text-right">
         <div className="flex justify-end gap-3 text-xs">
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={markPostedToday}
-            className="text-accent hover:underline disabled:opacity-50"
-          >
-            Mark posted today
-          </button>
           <button type="button" onClick={onEdit} className="text-muted hover:text-foreground">
             Edit
           </button>
@@ -395,11 +398,11 @@ function ReelFormModal({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted">Last posted date</label>
+          <label className="text-xs font-medium text-muted">Scheduled for</label>
           <input
             type="date"
-            value={fields.last_posted_date}
-            onChange={(e) => setFields({ ...fields, last_posted_date: e.target.value })}
+            value={fields.scheduled_for}
+            onChange={(e) => setFields({ ...fields, scheduled_for: e.target.value })}
             disabled={isPending}
             className={textFieldClass}
           />

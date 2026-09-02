@@ -146,15 +146,14 @@ export async function getCreatorPlan(creatorId: string): Promise<CreatorPlan | n
   return data as CreatorPlan | null;
 }
 
-// Oldest last_posted_date first — the most overdue-for-a-repost reel sits
-// at the top, whatever was just reposted drops to the bottom.
+// Soonest scheduled_for first — whatever's coming up next sits at the top.
 export async function getWinningReels(creatorId: string): Promise<WinningReel[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("winning_reels")
     .select("*")
     .eq("creator_id", creatorId)
-    .order("last_posted_date", { ascending: true });
+    .order("scheduled_for", { ascending: true });
   if (error) throw new Error(error.message);
   return data as WinningReel[];
 }
