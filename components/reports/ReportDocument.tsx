@@ -1,4 +1,5 @@
 import { formatWeekLabel } from "@/lib/weeks";
+import { formatDateUK } from "@/lib/format";
 import type { Report } from "@/lib/types";
 import PrintButton from "./PrintButton";
 
@@ -16,7 +17,7 @@ export default function ReportDocument({
   const periodLabel =
     report.period_type === "weekly"
       ? formatWeekLabel(report.period_start)
-      : `${report.period_start} – ${report.period_end}`;
+      : `${formatDateUK(report.period_start)} – ${formatDateUK(report.period_end)}`;
 
   return (
     <div className="print-document mx-auto flex w-full max-w-2xl flex-col gap-6 rounded-lg border border-border bg-surface p-8">

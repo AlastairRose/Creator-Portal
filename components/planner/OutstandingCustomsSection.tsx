@@ -10,6 +10,7 @@ import {
   type CustomFields,
 } from "@/lib/actions/customs";
 import { updateCustomsDriveLink } from "@/lib/actions/creator-drive-links";
+import { formatDateUK } from "@/lib/format";
 import { OUTSTANDING_CUSTOM_STATUS_LABELS } from "@/lib/types";
 import type { OutstandingCustom, OutstandingCustomStatus } from "@/lib/types";
 import DueStatusBadge from "./DueStatusBadge";
@@ -110,7 +111,9 @@ function CreatorCustomCard({ custom }: { custom: OutstandingCustom }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2 text-right">
           <p className="text-sm">{custom.custom_price_agreed || "—"}</p>
-          <p className="text-xs text-muted">{custom.due_by ? `Due ${custom.due_by}` : "No due date"}</p>
+          <p className="text-xs text-muted">
+            {custom.due_by ? `Due ${formatDateUK(custom.due_by)}` : "No due date"}
+          </p>
           <DueStatusBadge custom={custom} />
           <button
             type="button"
@@ -247,7 +250,7 @@ function StaffCustomRow({
   return (
     <Fragment>
       <tr className="border-t border-border">
-        <td className="px-4 py-3 text-muted">{new Date(custom.requested_at).toLocaleDateString()}</td>
+        <td className="px-4 py-3 text-muted">{formatDateUK(custom.requested_at)}</td>
         <td className="px-4 py-3">
           <div className="flex flex-col items-start gap-1">
             <button
@@ -268,7 +271,7 @@ function StaffCustomRow({
           </div>
         </td>
         <td className="hidden px-4 py-3 text-muted sm:table-cell">{custom.custom_price_agreed ?? "—"}</td>
-        <td className="hidden px-4 py-3 text-muted sm:table-cell">{custom.due_by ?? "—"}</td>
+        <td className="hidden px-4 py-3 text-muted sm:table-cell">{formatDateUK(custom.due_by)}</td>
         <td className="px-4 py-3">
           <DueStatusBadge custom={custom} />
         </td>

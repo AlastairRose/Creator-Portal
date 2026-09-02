@@ -12,6 +12,7 @@ import {
 } from "@/lib/actions/onlyfans";
 import { updateOnlyfansDriveLink } from "@/lib/actions/creator-drive-links";
 import { saveOnlyfansRequestToOfcd } from "@/lib/actions/ofcd-ideas";
+import { formatDateUK } from "@/lib/format";
 import {
   CONTENT_REQUEST_URGENCY_LABELS,
   ONLYFANS_CONTENT_TYPE_LABELS,
@@ -316,7 +317,7 @@ function RequestRow({
           )}
         </td>
         <td className="hidden px-4 py-3 text-muted sm:table-cell">{isSexting ? "—" : request.length ?? "—"}</td>
-        <td className="px-4 py-3 text-muted">{new Date(request.created_at).toLocaleDateString()}</td>
+        <td className="px-4 py-3 text-muted">{formatDateUK(request.created_at)}</td>
         <td className="px-4 py-3">
           {isStaff && request.status === "open" ? (
             <select

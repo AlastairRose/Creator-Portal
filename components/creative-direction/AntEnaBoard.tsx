@@ -11,6 +11,7 @@ import {
   updateCulturalEvent,
   type CulturalEventFields,
 } from "@/lib/actions/cultural-events";
+import { formatDateUK } from "@/lib/format";
 import { CULTURAL_EVENT_REGIONS } from "@/lib/types";
 import type { CulturalEvent, CulturalEventStatus } from "@/lib/types";
 import Modal from "@/components/shared/Modal";
@@ -39,9 +40,9 @@ function fieldsFromEvent(event: CulturalEvent): CulturalEventFields {
 
 function formatDate(event: CulturalEvent) {
   if (event.event_end_date && event.event_end_date !== event.event_date) {
-    return `${event.event_date} – ${event.event_end_date}`;
+    return `${formatDateUK(event.event_date)} – ${formatDateUK(event.event_end_date)}`;
   }
-  return event.event_date;
+  return formatDateUK(event.event_date);
 }
 
 export default function AntEnaBoard({ events }: { events: CulturalEvent[] }) {

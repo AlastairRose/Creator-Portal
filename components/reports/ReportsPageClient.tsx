@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatDateUK } from "@/lib/format";
 import type { Creator, Report } from "@/lib/types";
 import GenerateReportForm from "./GenerateReportForm";
 
@@ -66,7 +67,7 @@ export default function ReportsPageClient({
             {reports.map((report) => (
               <tr key={report.id} className="border-t border-border">
                 <td className="px-4 py-3">
-                  {report.period_start} – {report.period_end}
+                  {formatDateUK(report.period_start)} – {formatDateUK(report.period_end)}
                 </td>
                 <td className="px-4 py-3 text-muted capitalize">{report.period_type}</td>
                 <td className="px-4 py-3 text-muted">
