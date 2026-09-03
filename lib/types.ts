@@ -237,8 +237,8 @@ export type OutstandingCustom = {
 export type CustomUrgency = "on_track" | "due" | "overdue";
 
 // "Winning 30": a per-creator bank of previously winning reels worth
-// reposting, sorted soonest-scheduled_for-first wherever it's read so
-// what's coming up next sits at the top.
+// reposting, sorted oldest-last_posted_date-first wherever it's read so
+// the most overdue-for-a-repost reel sits at the top.
 export type WinningReel = {
   id: string;
   creator_id: string;
