@@ -21,7 +21,7 @@ function emptyFields(): WinningReelFields {
     title: "",
     original_link: null,
     footage_link: null,
-    scheduled_for: new Date().toISOString().slice(0, 10),
+    scheduled_for: null,
     last_posted_date: null,
   };
 }
@@ -267,13 +267,13 @@ function ImportModal({
 function ReelRow({ reel, onEdit }: { reel: WinningReel; onEdit: () => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [date, setDate] = useState(reel.scheduled_for);
+  const [date, setDate] = useState(reel.scheduled_for ?? "");
   const [lastPosted, setLastPosted] = useState(reel.last_posted_date ?? "");
 
   function saveDate(nextDate: string) {
-    if (!nextDate || nextDate === reel.scheduled_for) return;
+    if (nextDate === (reel.scheduled_for ?? "")) return;
     startTransition(async () => {
-      await setWinningReelScheduledDate(reel.id, nextDate);
+      await setWinningReelScheduledDate(reel.id, nextDate || null);
       router.refresh();
     });
   }
@@ -434,8 +434,8 @@ function ReelFormModal({
           <label className="text-xs font-medium text-muted">Scheduled for</label>
           <input
             type="date"
-            value={fields.scheduled_for}
-            onChange={(e) => setFields({ ...fields, scheduled_for: e.target.value })}
+            value={fields.scheduled_for ?? ""}
+            onChange={(e) => setFields({ ...fields, scheduled_for: e.target.value || null })}
             disabled={isPending}
             className={textFieldClass}
           />

@@ -9,18 +9,17 @@ export type WinningReelFields = {
   title: string;
   original_link: string | null;
   footage_link: string | null;
-  scheduled_for: string;
+  scheduled_for: string | null;
   last_posted_date: string | null;
 };
 
 function normalizeFields(fields: WinningReelFields) {
   if (!fields.title.trim()) throw new Error("Give the reel a title.");
-  if (!fields.scheduled_for) throw new Error("Pick a scheduled date.");
   return {
     title: fields.title.trim(),
     original_link: fields.original_link?.trim() || null,
     footage_link: fields.footage_link?.trim() || null,
-    scheduled_for: fields.scheduled_for,
+    scheduled_for: fields.scheduled_for || null,
     last_posted_date: fields.last_posted_date || null,
   };
 }
@@ -47,11 +46,11 @@ export async function updateWinningReel(id: string, fields: WinningReelFields) {
 
 // Quick reschedule from the inline date picker on each row — picking a new
 // date re-sorts it in place (soonest scheduled_for always at the top).
-export async function setWinningReelScheduledDate(id: string, date: string) {
+// Clearable back to null (unscheduled reels sort to the bottom).
+export async function setWinningReelScheduledDate(id: string, date: string | null) {
   await requireStaff();
-  if (!date) throw new Error("Pick a date.");
   const supabase = await createClient();
-  const { error } = await supabase.from("winning_reels").update({ scheduled_for: date }).eq("id", id);
+  const { error } = await supabase.from("winning_reels").update({ scheduled_for: date || null }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/creative-direction/winning-30");
 }
@@ -93,15 +92,13 @@ export async function fetchViralCandidates(creatorId: string): Promise<ViralPost
 
 // Bulk-adds the staff-selected candidates as new Winning 30 entries —
 // last_posted_date is set to the post's actual post date (that's the last
-// time it went out), while scheduled_for defaults to today as a plain
-// placeholder (staff pick a real upcoming date afterward via the inline
-// picker) rather than the past post date, which would read like the field
-// is showing the wrong thing.
+// time it went out), while scheduled_for starts blank so it can't be
+// mistaken for an already-planned repost — staff pick a real upcoming date
+// afterward via the inline picker.
 export async function importWinningReels(creatorId: string, candidates: ViralPostCandidate[]) {
   const profile = await requireStaff();
   if (candidates.length === 0) return;
 
-  const today = new Date().toISOString().slice(0, 10);
   const supabase = await createClient();
   const { error } = await supabase.from("winning_reels").insert(
     candidates.map((c) => ({
@@ -110,7 +107,7 @@ export async function importWinningReels(creatorId: string, candidates: ViralPos
       title: c.title,
       original_link: c.originalLink,
       footage_link: null,
-      scheduled_for: today,
+      scheduled_for: null,
       last_posted_date: c.datePosted,
     }))
   );
