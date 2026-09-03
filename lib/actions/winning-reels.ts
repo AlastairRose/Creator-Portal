@@ -93,13 +93,15 @@ export async function fetchViralCandidates(creatorId: string): Promise<ViralPost
 
 // Bulk-adds the staff-selected candidates as new Winning 30 entries —
 // last_posted_date is set to the post's actual post date (that's the last
-// time it went out), and scheduled_for starts there too as a placeholder
-// (staff reschedule it to a real upcoming date afterward via the inline
-// picker).
+// time it went out), while scheduled_for defaults to today as a plain
+// placeholder (staff pick a real upcoming date afterward via the inline
+// picker) rather than the past post date, which would read like the field
+// is showing the wrong thing.
 export async function importWinningReels(creatorId: string, candidates: ViralPostCandidate[]) {
   const profile = await requireStaff();
   if (candidates.length === 0) return;
 
+  const today = new Date().toISOString().slice(0, 10);
   const supabase = await createClient();
   const { error } = await supabase.from("winning_reels").insert(
     candidates.map((c) => ({
@@ -108,7 +110,7 @@ export async function importWinningReels(creatorId: string, candidates: ViralPos
       title: c.title,
       original_link: c.originalLink,
       footage_link: null,
-      scheduled_for: c.datePosted,
+      scheduled_for: today,
       last_posted_date: c.datePosted,
     }))
   );
