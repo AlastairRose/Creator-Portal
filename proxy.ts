@@ -34,6 +34,14 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Vercel Cron invokes these with no session cookie at all (it authenticates
+  // via the route's own CRON_SECRET check instead) — without this, every
+  // cron call was silently redirected to /login before ever reaching the
+  // route handler, so the job never actually ran.
+  if (request.nextUrl.pathname.startsWith("/api/cron")) {
+    return response;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
