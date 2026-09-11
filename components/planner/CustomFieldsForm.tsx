@@ -11,15 +11,17 @@ export default function CustomFieldsForm({
   onChange,
   onBlurField,
   disabled,
-  currentScreenshotPath,
-  onScreenshotFileChange,
+  currentScreenshotPaths,
+  onScreenshotFilesChange,
+  onRemoveScreenshot,
 }: {
   fields: CustomFields;
   onChange: (fields: CustomFields) => void;
   onBlurField?: () => void;
   disabled?: boolean;
-  currentScreenshotPath?: string | null;
-  onScreenshotFileChange?: (file: File | null) => void;
+  currentScreenshotPaths?: string[];
+  onScreenshotFilesChange?: (files: File[]) => void;
+  onRemoveScreenshot?: (path: string) => void;
 }) {
   function set<K extends keyof CustomFields>(key: K, value: CustomFields[K]) {
     onChange({ ...fields, [key]: value });
@@ -81,21 +83,41 @@ export default function CustomFieldsForm({
         />
       </div>
       <div className="col-span-2 flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-muted">Screenshot of chat</label>
-        <div className="flex items-center gap-3">
-          {currentScreenshotPath !== undefined && (
-            <ChatScreenshotThumbnail path={currentScreenshotPath} />
-          )}
-          {onScreenshotFileChange && (
-            <input
-              type="file"
-              accept="image/*"
-              disabled={disabled}
-              onChange={(e) => onScreenshotFileChange(e.target.files?.[0] ?? null)}
-              className="flex-1 text-sm text-muted file:mr-3 file:rounded file:border-0 file:bg-accent file:px-2 file:py-1 file:text-xs file:text-white disabled:opacity-70"
-            />
-          )}
-        </div>
+        <label className="text-xs font-medium text-muted">Screenshots of chat</label>
+        {currentScreenshotPaths && currentScreenshotPaths.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {currentScreenshotPaths.map((path) => (
+              <div key={path} className="relative">
+                <ChatScreenshotThumbnail path={path} />
+                {onRemoveScreenshot && (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onRemoveScreenshot(path)}
+                    aria-label="Remove screenshot"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {onScreenshotFilesChange && (
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={disabled}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0) onScreenshotFilesChange(files);
+              e.target.value = "";
+            }}
+            className="w-full text-sm text-muted file:mr-3 file:rounded file:border-0 file:bg-accent file:px-2 file:py-1 file:text-xs file:text-white disabled:opacity-70"
+          />
+        )}
       </div>
       <LabeledInput
         label="Link to the chat"

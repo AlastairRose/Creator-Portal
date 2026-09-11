@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
-import { uploadChatScreenshot } from "@/lib/storage";
+import { deleteChatScreenshot, uploadChatScreenshot } from "@/lib/storage";
 import type { OutstandingCustomStatus } from "@/lib/types";
 
 export type CustomFields = {
@@ -40,17 +40,49 @@ function normalizeCustomFields(fields: CustomFields) {
 export async function updateOutstandingCustom(
   id: string,
   fields: CustomFields,
-  screenshotFile?: File | null
+  newScreenshotFiles?: File[] | null
 ) {
   await requireStaff();
+  const supabase = await createClient();
   const update: Record<string, unknown> = normalizeCustomFields(fields);
-  if (screenshotFile && screenshotFile.size > 0) {
-    update.chat_screenshot_path = await uploadChatScreenshot(screenshotFile);
+
+  if (newScreenshotFiles && newScreenshotFiles.length > 0) {
+    const uploaded = await Promise.all(newScreenshotFiles.map((file) => uploadChatScreenshot(file)));
+    const { data: current, error: fetchError } = await supabase
+      .from("outstanding_customs")
+      .select("chat_screenshot_paths")
+      .eq("id", id)
+      .single();
+    if (fetchError) throw new Error(fetchError.message);
+    update.chat_screenshot_paths = [...(current?.chat_screenshot_paths ?? []), ...uploaded];
   }
 
-  const supabase = await createClient();
   const { error } = await supabase.from("outstanding_customs").update(update).eq("id", id);
   if (error) throw new Error(error.message);
+  revalidatePath("/planner");
+}
+
+// Removes one screenshot from a custom's gallery — fetches the current list
+// rather than trusting the client's copy, so a stale UI can't resurrect a
+// path someone else already removed.
+export async function removeChatScreenshot(id: string, path: string) {
+  await requireStaff();
+  const supabase = await createClient();
+  const { data: current, error: fetchError } = await supabase
+    .from("outstanding_customs")
+    .select("chat_screenshot_paths")
+    .eq("id", id)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+
+  const remaining = (current?.chat_screenshot_paths ?? []).filter((p: string) => p !== path);
+  const { error } = await supabase
+    .from("outstanding_customs")
+    .update({ chat_screenshot_paths: remaining })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  await deleteChatScreenshot(path);
   revalidatePath("/planner");
 }
 

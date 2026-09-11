@@ -220,7 +220,7 @@ export type OutstandingCustom = {
   outfit: string | null;
   location: string | null;
   description: string;
-  chat_screenshot_path: string | null; // storage object path, not a public URL
+  chat_screenshot_paths: string[]; // storage object paths, not public URLs
   chat_link: string | null;
   custom_price_agreed: string | null;
   snapchat_handle: string | null;

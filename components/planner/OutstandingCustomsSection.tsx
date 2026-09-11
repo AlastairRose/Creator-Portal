@@ -5,6 +5,7 @@ import { Fragment, useState, useTransition } from "react";
 import {
   deleteOutstandingCustom,
   markCustomUploaded,
+  removeChatScreenshot,
   setCustomStatus,
   updateOutstandingCustom,
   type CustomFields,
@@ -130,7 +131,15 @@ function CreatorCustomCard({ custom }: { custom: OutstandingCustom }) {
         <Modal title={name} onClose={() => setShowMoreInfo(false)}>
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <ChatScreenshotThumbnail path={custom.chat_screenshot_path} />
+              {custom.chat_screenshot_paths.length === 0 ? (
+                <span className="text-xs text-muted">No screenshot</span>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {custom.chat_screenshot_paths.map((path) => (
+                    <ChatScreenshotThumbnail key={path} path={path} />
+                  ))}
+                </div>
+              )}
               <div>
                 <p className="text-sm">{custom.description || "—"}</p>
                 <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted">
@@ -397,9 +406,16 @@ function EditableCustom({ custom }: { custom: OutstandingCustom }) {
     due_by: custom.due_by,
   });
 
-  function save(screenshotFile?: File | null) {
+  function save(newScreenshotFiles?: File[] | null) {
     startTransition(async () => {
-      await updateOutstandingCustom(custom.id, fields, screenshotFile);
+      await updateOutstandingCustom(custom.id, fields, newScreenshotFiles);
+      router.refresh();
+    });
+  }
+
+  function removeScreenshot(path: string) {
+    startTransition(async () => {
+      await removeChatScreenshot(custom.id, path);
       router.refresh();
     });
   }
@@ -410,8 +426,9 @@ function EditableCustom({ custom }: { custom: OutstandingCustom }) {
       onChange={setFields}
       onBlurField={() => save()}
       disabled={isPending}
-      currentScreenshotPath={custom.chat_screenshot_path}
-      onScreenshotFileChange={(file) => save(file)}
+      currentScreenshotPaths={custom.chat_screenshot_paths}
+      onScreenshotFilesChange={(files) => save(files)}
+      onRemoveScreenshot={removeScreenshot}
     />
   );
 }

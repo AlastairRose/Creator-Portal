@@ -22,13 +22,15 @@ export async function submitOutstandingCustomIntake(
 
   const field = (name: string) => String(formData.get(name) ?? "").trim() || null;
 
-  let chatScreenshotPath: string | null = null;
-  const screenshot = formData.get("chat_screenshot");
-  if (screenshot instanceof File && screenshot.size > 0) {
+  const screenshots = formData.getAll("chat_screenshot").filter(
+    (f): f is File => f instanceof File && f.size > 0
+  );
+  let chatScreenshotPaths: string[] = [];
+  if (screenshots.length > 0) {
     try {
-      chatScreenshotPath = await uploadChatScreenshot(screenshot);
+      chatScreenshotPaths = await Promise.all(screenshots.map((file) => uploadChatScreenshot(file)));
     } catch {
-      return { error: "Couldn't upload that screenshot — try again.", success: false };
+      return { error: "Couldn't upload those screenshots — try again.", success: false };
     }
   }
 
@@ -45,7 +47,7 @@ export async function submitOutstandingCustomIntake(
     custom_or_call: field("custom_or_call"),
     outfit: field("outfit"),
     location: field("location"),
-    chat_screenshot_path: chatScreenshotPath,
+    chat_screenshot_paths: chatScreenshotPaths,
     chat_link: field("chat_link"),
     custom_price_agreed: field("custom_price_agreed"),
     snapchat_handle: field("snapchat_handle"),

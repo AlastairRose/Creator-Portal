@@ -51,11 +51,12 @@ export default function OutstandingCustomIntakeForm({ creatorId }: { creatorId: 
         <textarea name="description" required rows={4} className={fieldClass} />
       </Field>
 
-      <Field label="Screenshot of chat">
+      <Field label="Screenshots of chat">
         <input
           name="chat_screenshot"
           type="file"
           accept="image/*"
+          multiple
           className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none file:mr-3 file:rounded file:border-0 file:bg-accent file:px-2 file:py-1 file:text-xs file:text-white"
         />
       </Field>

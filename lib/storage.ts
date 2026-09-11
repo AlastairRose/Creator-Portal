@@ -31,7 +31,7 @@ export async function getChatScreenshotSignedUrl(path: string): Promise<string |
   const { data } = await supabase
     .from("outstanding_customs")
     .select("id")
-    .eq("chat_screenshot_path", path)
+    .contains("chat_screenshot_paths", [path])
     .maybeSingle();
   if (!data) return null;
 
@@ -39,6 +39,14 @@ export async function getChatScreenshotSignedUrl(path: string): Promise<string |
   const { data: signed, error } = await admin.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
   if (error) return null;
   return signed.signedUrl;
+}
+
+// Staff-only: permanently removes one screenshot from the bucket (called
+// after it's already been dropped from the row's chat_screenshot_paths).
+export async function deleteChatScreenshot(path: string): Promise<void> {
+  await requireStaff();
+  const admin = createAdminClient();
+  await admin.storage.from(BUCKET).remove([path]);
 }
 
 // SOPs are staff-only across the board (no per-row visibility variance like

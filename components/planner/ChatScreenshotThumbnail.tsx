@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { getChatScreenshotSignedUrl } from "@/lib/storage";
 
-export default function ChatScreenshotThumbnail({ path }: { path: string | null }) {
+export default function ChatScreenshotThumbnail({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [enlarged, setEnlarged] = useState(false);
 
   useEffect(() => {
-    if (!path) return;
     let active = true;
     getChatScreenshotSignedUrl(path).then((signed) => {
       if (active) setUrl(signed);
@@ -18,7 +17,6 @@ export default function ChatScreenshotThumbnail({ path }: { path: string | null 
     };
   }, [path]);
 
-  if (!path) return <span className="text-xs text-muted">No screenshot</span>;
   if (!url) return <span className="text-xs text-muted">Loading…</span>;
 
   return (
