@@ -25,7 +25,10 @@ export default async function ReportViewPage({
   ]);
 
   const percentReelsCompleted = computeReelsCompletedPercent(reels);
-  const percentRevenueChange = computeRevenueChangePercent(report.revenue, previousReport?.revenue ?? null);
+  const percentRevenueChange = computeRevenueChangePercent(
+    report.total_revenue,
+    previousReport?.total_revenue ?? null
+  );
   const isStaff = isStaffRole(profile.role);
 
   return (

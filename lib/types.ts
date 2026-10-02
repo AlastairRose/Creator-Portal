@@ -386,7 +386,10 @@ export type Report = {
   period_type: ReportPeriodType;
   period_start: string; // YYYY-MM-DD
   period_end: string; // YYYY-MM-DD
-  revenue: number | null;
+  total_revenue: number | null;
+  agency_share: number | null;
+  creator_share: number | null;
+  screenshot_paths: string[]; // storage object paths, not public URLs
   went_well: string | null;
   can_improve: string | null;
   next_plan: string | null;

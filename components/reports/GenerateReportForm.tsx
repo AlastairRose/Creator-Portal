@@ -31,12 +31,15 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
       period_type: "weekly",
       period_start: periodStart,
       period_end: defaultPeriodEnd("weekly", periodStart),
-      revenue: null,
+      total_revenue: null,
+      agency_share: null,
+      creator_share: null,
       went_well: null,
       can_improve: null,
       next_plan: null,
     };
   });
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
 
   function set<K extends keyof ReportFields>(key: K, value: ReportFields[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -61,7 +64,7 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
   function handleGenerate() {
     startTransition(async () => {
       try {
-        const id = await createReport(creatorId, fields);
+        const id = await createReport(creatorId, fields, screenshotFiles);
         setError(null);
         router.push(`/reports/${id}`);
       } catch (err) {
@@ -88,14 +91,38 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted">Revenue</label>
+          <label className="text-xs font-medium text-muted">Total Revenue</label>
           <input
             type="number"
             step="0.01"
-            value={fields.revenue ?? ""}
-            onChange={(e) => set("revenue", e.target.value ? Number(e.target.value) : null)}
+            value={fields.total_revenue ?? ""}
+            onChange={(e) => set("total_revenue", e.target.value ? Number(e.target.value) : null)}
             disabled={isPending}
             placeholder="e.g. 4200.00"
+            className={textFieldClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">Agency Share</label>
+          <input
+            type="number"
+            step="0.01"
+            value={fields.agency_share ?? ""}
+            onChange={(e) => set("agency_share", e.target.value ? Number(e.target.value) : null)}
+            disabled={isPending}
+            placeholder="e.g. 1680.00"
+            className={textFieldClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">Creator Share</label>
+          <input
+            type="number"
+            step="0.01"
+            value={fields.creator_share ?? ""}
+            onChange={(e) => set("creator_share", e.target.value ? Number(e.target.value) : null)}
+            disabled={isPending}
+            placeholder="e.g. 2520.00"
             className={textFieldClass}
           />
         </div>
@@ -148,6 +175,20 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
             rows={2}
             className={textFieldClass}
           />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">Screenshots</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={isPending}
+            onChange={(e) => setScreenshotFiles(Array.from(e.target.files ?? []))}
+            className="w-full text-sm text-muted file:mr-3 file:rounded file:border-0 file:bg-accent file:px-2 file:py-1 file:text-xs file:text-white disabled:opacity-70"
+          />
+          {screenshotFiles.length > 0 && (
+            <p className="text-xs text-muted">{screenshotFiles.length} file(s) selected.</p>
+          )}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { formatWeekLabel } from "@/lib/weeks";
 import { formatDateUK } from "@/lib/format";
 import type { Report } from "@/lib/types";
 import PrintButton from "./PrintButton";
+import ReportScreenshotThumbnail from "./ReportScreenshotThumbnail";
 
 export default function ReportDocument({
   report,
@@ -34,7 +35,9 @@ export default function ReportDocument({
       </div>
 
       <div className="grid grid-cols-3 gap-4 border-y border-border py-6">
-        <Stat label="Revenue" value={report.revenue != null ? `$${report.revenue}` : "—"} />
+        <Stat label="Total Revenue" value={report.total_revenue != null ? `$${report.total_revenue}` : "—"} />
+        <Stat label="Agency Share" value={report.agency_share != null ? `$${report.agency_share}` : "—"} />
+        <Stat label="Creator Share" value={report.creator_share != null ? `$${report.creator_share}` : "—"} />
         <Stat
           label="Revenue change"
           value={percentRevenueChange != null ? `${percentRevenueChange > 0 ? "+" : ""}${percentRevenueChange}%` : "—"}
@@ -45,6 +48,17 @@ export default function ReportDocument({
       <Section title="What went well" body={report.went_well} />
       <Section title="What can be improved" body={report.can_improve} />
       <Section title="Next plan" body={report.next_plan} />
+
+      {report.screenshot_paths.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold">Screenshots</h2>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {report.screenshot_paths.map((path) => (
+              <ReportScreenshotThumbnail key={path} path={path} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/roles";
 
 const BUCKET = "chat-screenshots";
 const SOPS_BUCKET = "sop-documents";
+const REPORTS_BUCKET = "report-screenshots";
 
 // Always goes through the service-role client — the bucket is private with
 // no client-side upload policies, since the public intake form has no
@@ -76,4 +77,41 @@ export async function deleteSopDocument(path: string): Promise<void> {
   await requireStaff();
   const admin = createAdminClient();
   await admin.storage.from(SOPS_BUCKET).remove([path]);
+}
+
+// Same private-bucket + signed-URL pattern as chat screenshots: staff can
+// upload, and a signed URL is only ever generated for a path that's actually
+// referenced by a report the caller's own session can see (staff, or their
+// own creator row).
+export async function uploadReportScreenshot(file: File): Promise<string> {
+  await requireStaff();
+  const admin = createAdminClient();
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `reports/${crypto.randomUUID()}.${ext || "jpg"}`;
+  const { error } = await admin.storage
+    .from(REPORTS_BUCKET)
+    .upload(path, file, { contentType: file.type || "application/octet-stream" });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+export async function getReportScreenshotSignedUrl(path: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("reports")
+    .select("id")
+    .contains("screenshot_paths", [path])
+    .maybeSingle();
+  if (!data) return null;
+
+  const admin = createAdminClient();
+  const { data: signed, error } = await admin.storage.from(REPORTS_BUCKET).createSignedUrl(path, 60 * 60);
+  if (error) return null;
+  return signed.signedUrl;
+}
+
+export async function deleteReportScreenshot(path: string): Promise<void> {
+  await requireStaff();
+  const admin = createAdminClient();
+  await admin.storage.from(REPORTS_BUCKET).remove([path]);
 }

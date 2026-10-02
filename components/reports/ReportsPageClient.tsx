@@ -59,7 +59,7 @@ export default function ReportsPageClient({
             <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Period</th>
               <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 font-medium">Revenue</th>
+              <th className="px-4 py-3 font-medium">Total Revenue</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
@@ -71,7 +71,7 @@ export default function ReportsPageClient({
                 </td>
                 <td className="px-4 py-3 text-muted capitalize">{report.period_type}</td>
                 <td className="px-4 py-3 text-muted">
-                  {report.revenue != null ? `$${report.revenue}` : "—"}
+                  {report.total_revenue != null ? `$${report.total_revenue}` : "—"}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/reports/${report.id}`} className="text-xs text-accent hover:underline">
