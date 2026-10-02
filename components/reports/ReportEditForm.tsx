@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteReport, removeReportScreenshot, updateReport, type ReportFields } from "@/lib/actions/reports";
+import { computeRevenueChangePercent } from "@/lib/reports";
 import type { Report } from "@/lib/types";
 import ReportScreenshotThumbnail from "./ReportScreenshotThumbnail";
 
@@ -19,6 +20,7 @@ export default function ReportEditForm({ report }: { report: Report }) {
     total_revenue: report.total_revenue,
     agency_share: report.agency_share,
     creator_share: report.creator_share,
+    last_month_revenue: report.last_month_revenue,
     went_well: report.went_well,
     can_improve: report.can_improve,
     next_plan: report.next_plan,
@@ -27,6 +29,8 @@ export default function ReportEditForm({ report }: { report: Report }) {
   function set<K extends keyof ReportFields>(key: K, value: ReportFields[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
   }
+
+  const revenueChangePercent = computeRevenueChangePercent(fields.total_revenue, fields.last_month_revenue);
 
   function save(newScreenshotFiles?: File[] | null) {
     startTransition(async () => {
@@ -99,6 +103,31 @@ export default function ReportEditForm({ report }: { report: Report }) {
             disabled={isPending}
             className={textFieldClass}
           />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">Last month&apos;s revenue</label>
+          <input
+            type="number"
+            step="0.01"
+            value={fields.last_month_revenue ?? ""}
+            onChange={(e) => set("last_month_revenue", e.target.value ? Number(e.target.value) : null)}
+            onBlur={() => save()}
+            disabled={isPending}
+            className={textFieldClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">% change</label>
+          <div className={`${textFieldClass} flex items-center border-transparent bg-transparent px-3 py-2 font-medium`}>
+            {revenueChangePercent != null ? (
+              <span className={revenueChangePercent >= 0 ? "text-success" : "text-danger"}>
+                {revenueChangePercent > 0 ? "+" : ""}
+                {revenueChangePercent}%
+              </span>
+            ) : (
+              <span className="text-muted">Enter both revenue figures</span>
+            )}
+          </div>
         </div>
         <div className="col-span-2 flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted">What went well</label>

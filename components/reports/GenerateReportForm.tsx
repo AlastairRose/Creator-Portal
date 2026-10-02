@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createReport, type ReportFields } from "@/lib/actions/reports";
+import { computeRevenueChangePercent } from "@/lib/reports";
 import { getCurrentWeekStart } from "@/lib/weeks";
 import type { ReportPeriodType } from "@/lib/types";
 
@@ -34,6 +35,7 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
       total_revenue: null,
       agency_share: null,
       creator_share: null,
+      last_month_revenue: null,
       went_well: null,
       can_improve: null,
       next_plan: null,
@@ -44,6 +46,8 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
   function set<K extends keyof ReportFields>(key: K, value: ReportFields[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
   }
+
+  const revenueChangePercent = computeRevenueChangePercent(fields.total_revenue, fields.last_month_revenue);
 
   function handlePeriodTypeChange(periodType: ReportPeriodType) {
     setFields((prev) => ({
@@ -125,6 +129,31 @@ export default function GenerateReportForm({ creatorId }: { creatorId: string })
             placeholder="e.g. 2520.00"
             className={textFieldClass}
           />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">Last month&apos;s revenue</label>
+          <input
+            type="number"
+            step="0.01"
+            value={fields.last_month_revenue ?? ""}
+            onChange={(e) => set("last_month_revenue", e.target.value ? Number(e.target.value) : null)}
+            disabled={isPending}
+            placeholder="e.g. 3800.00"
+            className={textFieldClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted">% change</label>
+          <div className={`${textFieldClass} flex items-center border-transparent bg-transparent px-3 py-2 font-medium`}>
+            {revenueChangePercent != null ? (
+              <span className={revenueChangePercent >= 0 ? "text-success" : "text-danger"}>
+                {revenueChangePercent > 0 ? "+" : ""}
+                {revenueChangePercent}%
+              </span>
+            ) : (
+              <span className="text-muted">Enter both revenue figures</span>
+            )}
+          </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted">Start date</label>

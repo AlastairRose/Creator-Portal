@@ -39,6 +39,10 @@ export default function ReportDocument({
         <Stat label="Agency Share" value={report.agency_share != null ? `$${report.agency_share}` : "—"} />
         <Stat label="Creator Share" value={report.creator_share != null ? `$${report.creator_share}` : "—"} />
         <Stat
+          label="Last Month's Revenue"
+          value={report.last_month_revenue != null ? `$${report.last_month_revenue}` : "—"}
+        />
+        <Stat
           label="Revenue change"
           value={percentRevenueChange != null ? `${percentRevenueChange > 0 ? "+" : ""}${percentRevenueChange}%` : "—"}
         />

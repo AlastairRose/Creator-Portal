@@ -389,6 +389,7 @@ export type Report = {
   total_revenue: number | null;
   agency_share: number | null;
   creator_share: number | null;
+  last_month_revenue: number | null; // manual entry, feeds the % change calculator
   screenshot_paths: string[]; // storage object paths, not public URLs
   went_well: string | null;
   can_improve: string | null;

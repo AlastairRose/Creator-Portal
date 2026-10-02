@@ -13,6 +13,7 @@ export type ReportFields = {
   total_revenue: number | null;
   agency_share: number | null;
   creator_share: number | null;
+  last_month_revenue: number | null;
   went_well: string | null;
   can_improve: string | null;
   next_plan: string | null;
@@ -29,6 +30,7 @@ function normalizeReportFields(fields: ReportFields) {
     total_revenue: fields.total_revenue,
     agency_share: fields.agency_share,
     creator_share: fields.creator_share,
+    last_month_revenue: fields.last_month_revenue,
     went_well: fields.went_well?.trim() || null,
     can_improve: fields.can_improve?.trim() || null,
     next_plan: fields.next_plan?.trim() || null,

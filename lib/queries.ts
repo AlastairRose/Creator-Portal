@@ -18,7 +18,6 @@ import type {
   RdIdea,
   Reel,
   Report,
-  ReportPeriodType,
   Sop,
   WinningReel,
 } from "@/lib/types";
@@ -244,27 +243,6 @@ export async function getReports(creatorId: string): Promise<Report[]> {
 export async function getReport(id: string): Promise<Report | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("reports").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data as Report | null;
-}
-
-// The most recent prior report of the same period_type, for computing %
-// revenue change — never stored, always derived at render time.
-export async function getPreviousReport(
-  creatorId: string,
-  periodType: ReportPeriodType,
-  beforePeriodStart: string
-): Promise<Report | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("reports")
-    .select("*")
-    .eq("creator_id", creatorId)
-    .eq("period_type", periodType)
-    .lt("period_start", beforePeriodStart)
-    .order("period_start", { ascending: false })
-    .limit(1)
-    .maybeSingle();
   if (error) throw new Error(error.message);
   return data as Report | null;
 }
