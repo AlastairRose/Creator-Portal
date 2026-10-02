@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import {
   createDraftReel,
   createDraftReelLenient,
@@ -20,6 +20,43 @@ import WeekPicker from "@/components/shared/WeekPicker";
 import ReelFieldsForm from "@/components/shared/ReelFieldsForm";
 import Modal from "@/components/shared/Modal";
 import type { ContentWeek, Creator, Idea, RdIdea, Reel } from "@/lib/types";
+
+// Persists an in-progress "New Reel" draft to localStorage, scoped per
+// creator+week, so accidentally closing the modal or navigating away and
+// back doesn't lose what was already typed — only a successful submit
+// clears it. Guarded for SSR (no window) and private-browsing (localStorage
+// can throw), same pattern as ThemeToggle.
+function draftStorageKey(creatorId: string, weekStartDate: string) {
+  return `creator-portal:add-reel-draft:${creatorId}:${weekStartDate}`;
+}
+
+function loadReelDraft(creatorId: string, weekStartDate: string): ReelDraftFields | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(draftStorageKey(creatorId, weekStartDate));
+    return raw ? (JSON.parse(raw) as ReelDraftFields) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveReelDraft(creatorId: string, weekStartDate: string, fields: ReelDraftFields) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(draftStorageKey(creatorId, weekStartDate), JSON.stringify(fields));
+  } catch {
+    // Private-browsing contexts can throw on write — fine to skip.
+  }
+}
+
+function clearReelDraft(creatorId: string, weekStartDate: string) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(draftStorageKey(creatorId, weekStartDate));
+  } catch {
+    // ignore
+  }
+}
 
 const EMPTY_FIELDS: ReelDraftFields = {
   name: "",
@@ -221,10 +258,19 @@ function AddReelFlow({
   }
 
   function pickNew() {
-    setFields(EMPTY_FIELDS);
+    setFields(loadReelDraft(selectedCreatorId, weekStartDate) ?? EMPTY_FIELDS);
     setSource("new");
     setStage("confirm");
   }
+
+  // Autosaves the in-progress "New Reel" draft as they type, so closing the
+  // modal (by accident or by navigating away) and coming back restores it —
+  // pickNew() above reloads whatever was last saved here.
+  useEffect(() => {
+    if (stage === "confirm" && source === "new") {
+      saveReelDraft(selectedCreatorId, weekStartDate, fields);
+    }
+  }, [stage, source, fields, selectedCreatorId, weekStartDate]);
 
   function pickFromLibrary(item: LibraryItem, itemSource: "rd" | "ideas") {
     setFields(toReelDraftFields(item));
@@ -247,6 +293,7 @@ function AddReelFlow({
         } else {
           await pushIdeaToWeek(fields, selectedCreatorId, weekStartDate);
         }
+        clearReelDraft(selectedCreatorId, weekStartDate);
         setError(null);
         setStage(null);
         router.refresh();
