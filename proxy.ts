@@ -34,6 +34,11 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Public privacy policy, linked from Google's OAuth consent screen.
+  if (request.nextUrl.pathname === "/privacy") {
+    return response;
+  }
+
   // Vercel Cron invokes these with no session cookie at all (it authenticates
   // via the route's own CRON_SECRET check instead) — without this, every
   // cron call was silently redirected to /login before ever reaching the
