@@ -258,13 +258,9 @@ function ReelsDriveLinkField({
 
   function createFolder() {
     startTransition(async () => {
-      try {
-        await createWeekDriveFolder(contentWeekId);
-        setCreateError(null);
-        router.refresh();
-      } catch (err) {
-        setCreateError(err instanceof Error ? err.message : "Couldn't create the Drive folder.");
-      }
+      const { error } = await createWeekDriveFolder(contentWeekId);
+      setCreateError(error);
+      if (!error) router.refresh();
     });
   }
 

@@ -180,12 +180,20 @@ export async function publishContentWeek(contentWeekId: string): Promise<{ drive
 
 // For weeks that were published without a folder (e.g. before Drive was
 // connected, or when creation failed): staff can create it with one click.
-export async function createWeekDriveFolder(contentWeekId: string) {
+// Returns the error rather than throwing — Next.js masks thrown server-action
+// errors in production, which would hide the real reason from staff.
+export async function createWeekDriveFolder(contentWeekId: string): Promise<{ error: string | null }> {
   await requireStaff();
-  await createWeekDriveFolderIfMissing(contentWeekId);
+  try {
+    await createWeekDriveFolderIfMissing(contentWeekId);
+  } catch (err) {
+    console.error("Couldn't create Drive folder for week:", err);
+    return { error: err instanceof Error ? err.message : "Couldn't create the Drive folder." };
+  }
   revalidatePath("/planner");
   revalidatePath("/reels-to-film");
   revalidatePath("/");
+  return { error: null };
 }
 
 // Creates a dated Drive folder for the week unless it already has a link
