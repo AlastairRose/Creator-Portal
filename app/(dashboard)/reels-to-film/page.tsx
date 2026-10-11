@@ -35,7 +35,7 @@ export default async function ReelsToFilmPage({
             <li>Every reel planned for this week is listed below.</li>
             <li>Click a reel&apos;s name to expand its full details.</li>
             <li>Filter by location to see only the reels for where you are right now.</li>
-            <li>Upload your finished reels using the Upload Reels Here button on this page.</li>
+            <li>Upload your raw footage using the Upload Reels Here button on this page. There&apos;s no need to edit anything, as our editors handle all editing for you.</li>
             <li>For any extra ideas you film, please use the Submit Own Idea button to brief the video editor.</li>
           </ul>
         </div>
