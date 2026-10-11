@@ -12,7 +12,7 @@ import { saveReelToIdeas, saveReelToRdIdeas } from "@/lib/actions/reel-library";
 import { submitOwnIdea } from "@/lib/actions/ideas";
 import { REEL_STATUS_LABELS } from "@/lib/types";
 import type { Reel, ReelStatus } from "@/lib/types";
-import type { ReelDraftFields } from "@/lib/actions/creative-direction";
+import { createWeekDriveFolder, type ReelDraftFields } from "@/lib/actions/creative-direction";
 import Modal from "@/components/shared/Modal";
 import ReelFieldsForm from "@/components/shared/ReelFieldsForm";
 import DriveUploadButton from "@/components/shared/DriveUploadButton";
@@ -254,6 +254,19 @@ function ReelsDriveLinkField({
   const router = useRouter();
   const [value, setValue] = useState(initialLink ?? "");
   const [isPending, startTransition] = useTransition();
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  function createFolder() {
+    startTransition(async () => {
+      try {
+        await createWeekDriveFolder(contentWeekId);
+        setCreateError(null);
+        router.refresh();
+      } catch (err) {
+        setCreateError(err instanceof Error ? err.message : "Couldn't create the Drive folder.");
+      }
+    });
+  }
 
   function save() {
     if (value === (initialLink ?? "")) return;
@@ -287,6 +300,17 @@ function ReelsDriveLinkField({
         placeholder="Paste this week's shared Drive folder link"
         className="w-80 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-70"
       />
+      {!initialLink && (
+        <button
+          type="button"
+          onClick={createFolder}
+          disabled={isPending}
+          className="self-start rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-raised disabled:opacity-50"
+        >
+          {isPending ? "Creating folder…" : "Create Drive folder"}
+        </button>
+      )}
+      {createError && <p className="text-xs text-danger">{createError}</p>}
       {initialLink && <DriveUploadButton href={initialLink} label="Upload Reels Here" />}
     </div>
   );

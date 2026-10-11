@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Full "drive" scope, not the narrower "drive.file" — staff can designate an
 // already-existing folder per creator (see weekly_root_drive_link) as where
@@ -180,6 +181,19 @@ export async function disconnectGoogleDrive() {
   if (error) throw new Error(error.message);
 }
 
+// The connection row is owner-only under RLS, so a creative director or
+// editor publishing a week can't see it through their own session — which
+// used to make folder creation silently no-op as if Drive weren't connected.
+// Folder creation therefore reads (and refreshes) the connection with the
+// service-role client instead. Server-only: callers must be staff-checked
+// server actions, and the token never leaves the server.
+async function getConnectionForServerUse(): Promise<Connection | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("google_drive_connection").select("*").maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Connection | null;
+}
+
 // Refreshes the access token if it's expired/near-expiry and persists the
 // new one, so the next call doesn't have to refresh again.
 async function getValidAccessToken(connection: Connection): Promise<string> {
@@ -189,8 +203,8 @@ async function getValidAccessToken(connection: Connection): Promise<string> {
   }
 
   const tokens = await refreshAccessToken(connection.refresh_token);
-  const supabase = await createClient();
-  await supabase
+  const admin = createAdminClient();
+  await admin
     .from("google_drive_connection")
     .update({
       access_token: tokens.access_token,
@@ -210,9 +224,8 @@ export function extractFolderId(linkOrId: string): string | null {
   return null;
 }
 
-// Called when a week is published. No-ops if Drive isn't connected, or if
-// the week already has a drive_link (never overwrites a manually pasted
-// link). Default folder layout: "Creator Portal" / {creator name} / "Week of
+// Called when a week is published, or from the "Create Drive folder" button.
+// Throws a readable error if Drive isn't connected or the Drive API fails. Default folder layout: "Creator Portal" / {creator name} / "Week of
 // {date}" — unless `weeklyRootFolderId` is given (a staff-designated
 // existing folder for this creator), in which case "Week of {date}" is
 // created directly inside that folder instead.
@@ -220,9 +233,11 @@ export async function ensureWeekDriveFolder(
   creatorName: string,
   weekStartDate: string,
   weeklyRootFolderId?: string | null
-): Promise<string | null> {
-  const connection = await getGoogleDriveConnection();
-  if (!connection) return null;
+): Promise<string> {
+  const connection = await getConnectionForServerUse();
+  if (!connection) {
+    throw new Error("Google Drive isn't connected. The owner can connect it under Admin → Google Drive.");
+  }
 
   const accessToken = await getValidAccessToken(connection);
   const parentId =

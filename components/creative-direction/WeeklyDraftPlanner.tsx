@@ -167,7 +167,12 @@ export default function WeeklyDraftPlanner({
               disabled={isPending}
               onClick={() =>
                 startTransition(async () => {
-                  await publishContentWeek(contentWeek.id);
+                  const { driveFolderError } = await publishContentWeek(contentWeek.id);
+                  if (driveFolderError) {
+                    window.alert(
+                      `The week was published, but its Google Drive folder couldn't be created:\n\n${driveFolderError}\n\nYou can retry with the "Create Drive folder" button on the Content Planner, or paste a link there by hand.`
+                    );
+                  }
                   router.refresh();
                 })
               }

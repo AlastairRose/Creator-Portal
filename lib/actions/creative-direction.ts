@@ -151,7 +151,9 @@ export async function deleteContentWeek(contentWeekId: string) {
   revalidatePath("/");
 }
 
-export async function publishContentWeek(contentWeekId: string) {
+// Returns driveFolderError when publishing succeeded but the Drive folder
+// couldn't be created, so the UI can say so instead of failing silently.
+export async function publishContentWeek(contentWeekId: string): Promise<{ driveFolderError: string | null }> {
   await requireStaff();
   const supabase = await createClient();
   const { error } = await supabase
@@ -160,46 +162,60 @@ export async function publishContentWeek(contentWeekId: string) {
     .eq("id", contentWeekId);
   if (error) throw new Error(error.message);
 
-  await autoCreateWeekDriveFolder(contentWeekId);
+  let driveFolderError: string | null = null;
+  try {
+    await createWeekDriveFolderIfMissing(contentWeekId);
+  } catch (err) {
+    // Never lets a Drive hiccup block publishing — that's the
+    // everyday-critical action; the folder can be created afterwards.
+    console.error("Couldn't auto-create Drive folder for week:", err);
+    driveFolderError = err instanceof Error ? err.message : "Couldn't create the Drive folder.";
+  }
 
   revalidatePath("/creative-direction");
   revalidatePath("/planner");
   revalidatePath("/");
+  return { driveFolderError };
 }
 
-// Best-effort: if Google Drive is connected and this week doesn't already
-// have a link (never overwrites one someone pasted in by hand), create a
-// dated Drive folder for it. Never lets a Drive hiccup block publishing —
-// that's the everyday-critical action, this is a nice-to-have on top of it.
-async function autoCreateWeekDriveFolder(contentWeekId: string) {
-  try {
-    const supabase = await createClient();
-    const { data: week } = await supabase
-      .from("content_weeks")
-      .select("creator_id, week_start_date, drive_link")
-      .eq("id", contentWeekId)
-      .single();
-    if (!week || week.drive_link) return;
+// For weeks that were published without a folder (e.g. before Drive was
+// connected, or when creation failed): staff can create it with one click.
+export async function createWeekDriveFolder(contentWeekId: string) {
+  await requireStaff();
+  await createWeekDriveFolderIfMissing(contentWeekId);
+  revalidatePath("/planner");
+  revalidatePath("/reels-to-film");
+  revalidatePath("/");
+}
 
-    const [{ data: creator }, { data: driveLinks }] = await Promise.all([
-      supabase.from("creators").select("name").eq("id", week.creator_id).single(),
-      supabase
-        .from("creator_drive_links")
-        .select("weekly_root_drive_link")
-        .eq("creator_id", week.creator_id)
-        .maybeSingle(),
-    ]);
-    if (!creator) return;
+// Creates a dated Drive folder for the week unless it already has a link
+// (never overwrites one someone pasted in by hand). Throws on failure.
+async function createWeekDriveFolderIfMissing(contentWeekId: string) {
+  const supabase = await createClient();
+  const { data: week, error: weekError } = await supabase
+    .from("content_weeks")
+    .select("creator_id, week_start_date, drive_link")
+    .eq("id", contentWeekId)
+    .single();
+  if (weekError || !week) throw new Error("Couldn't find that week.");
+  if (week.drive_link) return;
 
-    const weeklyRootFolderId = driveLinks?.weekly_root_drive_link
-      ? extractFolderId(driveLinks.weekly_root_drive_link)
-      : null;
+  const [{ data: creator }, { data: driveLinks }] = await Promise.all([
+    supabase.from("creators").select("name").eq("id", week.creator_id).single(),
+    supabase
+      .from("creator_drive_links")
+      .select("weekly_root_drive_link")
+      .eq("creator_id", week.creator_id)
+      .maybeSingle(),
+  ]);
+  if (!creator) throw new Error("Couldn't find that week's creator.");
 
-    const driveLink = await ensureWeekDriveFolder(creator.name, week.week_start_date, weeklyRootFolderId);
-    if (!driveLink) return;
+  const weeklyRootFolderId = driveLinks?.weekly_root_drive_link
+    ? extractFolderId(driveLinks.weekly_root_drive_link)
+    : null;
 
-    await supabase.from("content_weeks").update({ drive_link: driveLink }).eq("id", contentWeekId);
-  } catch (err) {
-    console.error("Couldn't auto-create Drive folder for week:", err);
-  }
+  const driveLink = await ensureWeekDriveFolder(creator.name, week.week_start_date, weeklyRootFolderId);
+
+  const { error } = await supabase.from("content_weeks").update({ drive_link: driveLink }).eq("id", contentWeekId);
+  if (error) throw new Error(error.message);
 }
