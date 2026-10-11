@@ -36,6 +36,7 @@ export default async function ReelsToFilmPage({
             <li>Click a reel&apos;s name to expand its full details.</li>
             <li>Filter by location to see only the reels for where you are right now.</li>
             <li>Upload your finished reels using the Upload Reels Here button on this page.</li>
+            <li>For any extra ideas you film, please use the Submit Own Idea button to brief the video editor.</li>
           </ul>
         </div>
         {contentWeek?.drive_link && <DriveUploadButton href={contentWeek.drive_link} label="Upload Reels Here" />}
