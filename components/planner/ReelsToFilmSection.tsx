@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useId, useMemo, useState, useTransition } from "react";
 import {
   markReelsUploaded,
   markReelStaffStatus,
@@ -40,6 +40,15 @@ const STATUS_BADGE_CLASS: Record<ReelStatus, string> = {
   not_liked: "bg-danger/15 text-danger",
 };
 
+const ALL_LOCATIONS = "__all__";
+const NO_LOCATION = "__none__";
+
+// Locations are free text, so "Bedroom" and "bedroom " should group together.
+function locationKey(location: string | null): string {
+  const trimmed = location?.trim();
+  return trimmed ? `loc:${trimmed.toLowerCase()}` : NO_LOCATION;
+}
+
 export default function ReelsToFilmSection({
   reels,
   isStaff,
@@ -55,8 +64,43 @@ export default function ReelsToFilmSection({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [locationFilter, setLocationFilter] = useState(ALL_LOCATIONS);
+  const filterId = useId();
 
-  const plannedIds = reels.filter((r) => r.status === "planned").map((r) => r.id);
+  const locationOptions = useMemo(() => {
+    const byKey = new Map<string, { label: string; count: number }>();
+    let noLocationCount = 0;
+    for (const reel of reels) {
+      const key = locationKey(reel.location);
+      if (key === NO_LOCATION) {
+        noLocationCount += 1;
+        continue;
+      }
+      const existing = byKey.get(key);
+      if (existing) existing.count += 1;
+      else byKey.set(key, { label: reel.location!.trim(), count: 1 });
+    }
+    const options = Array.from(byKey, ([key, v]) => ({ key, ...v })).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+    if (noLocationCount > 0 && options.length > 0) {
+      options.push({ key: NO_LOCATION, label: "No location set", count: noLocationCount });
+    }
+    return options;
+  }, [reels]);
+
+  // A reel edit elsewhere can remove the selected location from the list.
+  const activeFilter = locationOptions.some((o) => o.key === locationFilter)
+    ? locationFilter
+    : ALL_LOCATIONS;
+  const visibleReels =
+    activeFilter === ALL_LOCATIONS ? reels : reels.filter((r) => locationKey(r.location) === activeFilter);
+
+  const visiblePlannedIds = visibleReels.filter((r) => r.status === "planned").map((r) => r.id);
+  // Only ever act on reels the user can currently see — a filtered-out reel
+  // that was ticked earlier must not get marked uploaded by accident.
+  const visibleSelectedIds = visiblePlannedIds.filter((id) => selected.has(id));
+  const allVisibleSelected = visiblePlannedIds.length > 0 && visibleSelectedIds.length === visiblePlannedIds.length;
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -68,13 +112,20 @@ export default function ReelsToFilmSection({
   }
 
   function toggleSelectAll() {
-    setSelected((prev) => (prev.size === plannedIds.length ? new Set() : new Set(plannedIds)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of visiblePlannedIds) {
+        if (allVisibleSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
   }
 
   function handleMarkUploaded() {
-    if (selected.size === 0) return;
+    if (visibleSelectedIds.length === 0) return;
     startTransition(async () => {
-      await markReelsUploaded(Array.from(selected));
+      await markReelsUploaded(visibleSelectedIds);
       setSelected(new Set());
       router.refresh();
     });
@@ -105,14 +156,34 @@ export default function ReelsToFilmSection({
           {contentWeekId && (
             <ReelsDriveLinkField contentWeekId={contentWeekId} initialLink={driveLink ?? null} isStaff={isStaff} />
           )}
-          {selected.size > 0 && (
+          {locationOptions.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={filterId} className="text-xs font-medium text-muted">
+                Filter by location
+              </label>
+              <select
+                id={filterId}
+                value={activeFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+              >
+                <option value={ALL_LOCATIONS}>All locations ({reels.length})</option>
+                {locationOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label} ({o.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {visibleSelectedIds.length > 0 && (
             <button
               type="button"
               disabled={isPending}
               onClick={handleMarkUploaded}
               className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              Mark {selected.size} as uploaded
+              Mark {visibleSelectedIds.length} as uploaded
             </button>
           )}
         </div>
@@ -123,10 +194,10 @@ export default function ReelsToFilmSection({
           <thead>
             <tr className="border-b border-border bg-surface text-left text-[11px] uppercase tracking-wide text-muted">
               <th className="w-10 px-4 py-3">
-                {plannedIds.length > 0 && (
+                {visiblePlannedIds.length > 0 && (
                   <input
                     type="checkbox"
-                    checked={selected.size === plannedIds.length}
+                    checked={allVisibleSelected}
                     onChange={toggleSelectAll}
                     aria-label="Select all"
                   />
@@ -139,7 +210,7 @@ export default function ReelsToFilmSection({
             </tr>
           </thead>
           <tbody>
-            {reels.map((reel) => (
+            {visibleReels.map((reel) => (
               <ReelRow
                 key={reel.id}
                 reel={reel}
@@ -150,6 +221,13 @@ export default function ReelsToFilmSection({
                 onToggleExpanded={() => setExpandedId(expandedId === reel.id ? null : reel.id)}
               />
             ))}
+            {visibleReels.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-muted">
+                  No reels at this location.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

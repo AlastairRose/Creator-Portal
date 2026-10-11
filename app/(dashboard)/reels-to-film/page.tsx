@@ -29,6 +29,15 @@ export default async function ReelsToFilmPage({
           <h1 className="text-xl font-semibold tracking-tight">Reels to Film</h1>
           <p className="mt-1 text-sm text-muted">This week&apos;s planned reels.</p>
         </div>
+        <div className="rounded-lg border border-border bg-surface p-4 text-sm">
+          <p className="font-medium">How this page works</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
+            <li>Every reel planned for this week is listed below.</li>
+            <li>Click a reel&apos;s name to expand its full details.</li>
+            <li>Filter by location to see only the reels for where you are right now.</li>
+            <li>Upload your finished reels using the Upload Reels Here button on this page.</li>
+          </ul>
+        </div>
         {contentWeek?.drive_link && <DriveUploadButton href={contentWeek.drive_link} label="Upload Reels Here" />}
         <ReelsToFilmSection reels={reels} isStaff={false} />
       </div>
