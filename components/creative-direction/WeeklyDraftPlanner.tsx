@@ -227,7 +227,9 @@ export default function WeeklyDraftPlanner({
           </div>
         )}
 
-        {!isPublished && selectedCreatorId && (
+        {/* Reels can be added to a published week too — they show on the
+            creator's planner straight away. */}
+        {selectedCreatorId && (
           <AddReelFlow
             selectedCreatorId={selectedCreatorId}
             weekStartDate={weekStartDate}

@@ -94,6 +94,10 @@ async function insertReel(
   });
   if (error) throw new Error(error.message);
   revalidatePath("/creative-direction");
+  // The week may already be published, in which case the creator sees it now.
+  revalidatePath("/planner");
+  revalidatePath("/reels-to-film");
+  revalidatePath("/");
 }
 
 // The manual "Add reel" form — forces every field to be filled in.
