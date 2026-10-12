@@ -151,6 +151,104 @@ export async function deleteContentWeek(contentWeekId: string) {
   revalidatePath("/");
 }
 
+// For a week planned under the wrong creator: moves every reel in this draft
+// week to the same week for another creator (merging into that creator's
+// draft if they already have one), then removes the now-empty week. Reels
+// keep their ids, so nothing linked to them is lost. Only drafts can move —
+// once a week is published, its creator has already seen it.
+//
+// Not a single transaction (supabase-js has none). The source week is only
+// deleted once every reel has moved, so a failure part-way never loses a
+// reel — at worst some are already under the new creator and the rest are
+// still in the original week, and running the move again finishes it.
+//
+// Returns the error rather than throwing — Next.js masks thrown server-action
+// errors in production, which would hide the reason from staff.
+export async function moveDraftWeekToCreator(
+  contentWeekId: string,
+  targetCreatorId: string
+): Promise<{ error: string | null }> {
+  await requireStaff();
+  try {
+    await moveDraftWeek(contentWeekId, targetCreatorId);
+  } catch (err) {
+    console.error("Couldn't move week to another creator:", err);
+    return { error: err instanceof Error ? err.message : "Couldn't move this week." };
+  }
+  revalidatePath("/creative-direction");
+  revalidatePath("/planner");
+  revalidatePath("/");
+  return { error: null };
+}
+
+async function moveDraftWeek(contentWeekId: string, targetCreatorId: string) {
+  const supabase = await createClient();
+
+  const { data: source, error: sourceError } = await supabase
+    .from("content_weeks")
+    .select("id, creator_id, week_start_date, status")
+    .eq("id", contentWeekId)
+    .single();
+  if (sourceError || !source) throw new Error("Couldn't find that week.");
+  if (source.status !== "draft") throw new Error("Only draft weeks can be moved to another creator.");
+  if (source.creator_id === targetCreatorId) return;
+
+  const { data: existingTarget } = await supabase
+    .from("content_weeks")
+    .select("id, status")
+    .eq("creator_id", targetCreatorId)
+    .eq("week_start_date", source.week_start_date)
+    .maybeSingle();
+  if (existingTarget?.status === "published") {
+    throw new Error("That creator's plan for this week is already published, so these reels can't be moved into it.");
+  }
+
+  const targetWeekId = existingTarget?.id ?? (await ensureDraftWeek(targetCreatorId, source.week_start_date));
+
+  // Moved reels go after any the target week already has.
+  const { data: lastTargetReel } = await supabase
+    .from("reels")
+    .select("sort_order")
+    .eq("content_week_id", targetWeekId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const offset = lastTargetReel ? lastTargetReel.sort_order + 1 : 0;
+
+  const { data: reels, error: reelsError } = await supabase
+    .from("reels")
+    .select("id, sort_order")
+    .eq("content_week_id", contentWeekId);
+  if (reelsError) throw new Error(reelsError.message);
+
+  if (offset === 0) {
+    const { error } = await supabase
+      .from("reels")
+      .update({ content_week_id: targetWeekId, creator_id: targetCreatorId })
+      .eq("content_week_id", contentWeekId);
+    if (error) throw new Error(error.message);
+  } else {
+    for (const reel of reels ?? []) {
+      const { error } = await supabase
+        .from("reels")
+        .update({ content_week_id: targetWeekId, creator_id: targetCreatorId, sort_order: reel.sort_order + offset })
+        .eq("id", reel.id);
+      if (error) throw new Error(error.message);
+    }
+  }
+
+  // Deleting the week cascades to any reels still in it, so be certain none are.
+  const { count, error: countError } = await supabase
+    .from("reels")
+    .select("id", { count: "exact", head: true })
+    .eq("content_week_id", contentWeekId);
+  if (countError) throw new Error(countError.message);
+  if (count !== 0) throw new Error("Some reels didn't move. Nothing was deleted. Please try again.");
+
+  const { error: deleteError } = await supabase.from("content_weeks").delete().eq("id", contentWeekId);
+  if (deleteError) throw new Error(deleteError.message);
+}
+
 // Returns driveFolderError when publishing succeeded but the Drive folder
 // couldn't be created, so the UI can say so instead of failing silently.
 export async function publishContentWeek(contentWeekId: string): Promise<{ driveFolderError: string | null }> {

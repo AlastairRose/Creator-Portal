@@ -8,6 +8,7 @@ import {
   deleteContentWeek,
   deleteDraftReel,
   ensureDraftWeek,
+  moveDraftWeekToCreator,
   publishContentWeek,
   updateDraftReel,
   type ReelDraftFields,
@@ -180,6 +181,14 @@ export default function WeeklyDraftPlanner({
             >
               Publish week
             </button>
+          )}
+          {contentWeek && !isPublished && reels.length > 0 && selectedCreatorId && (
+            <MoveWeekButton
+              contentWeekId={contentWeek.id}
+              currentCreatorId={selectedCreatorId}
+              creators={creators}
+              reelCount={reels.length}
+            />
           )}
           {contentWeek && (
             <button
@@ -699,5 +708,110 @@ function ReelCard({
         </div>
       }
     />
+  );
+}
+
+// For a week planned under the wrong creator — moves all its reels to the
+// same week for the creator picked here, then switches the view to them.
+function MoveWeekButton({
+  contentWeekId,
+  currentCreatorId,
+  creators,
+  reelCount,
+}: {
+  contentWeekId: string;
+  currentCreatorId: string;
+  creators: Creator[];
+  reelCount: number;
+}) {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [targetCreatorId, setTargetCreatorId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const currentName = creators.find((c) => c.id === currentCreatorId)?.name ?? "this creator";
+  const options = creators.filter((c) => c.id !== currentCreatorId && !c.archived);
+  const targetName = options.find((c) => c.id === targetCreatorId)?.name;
+
+  function close() {
+    setIsOpen(false);
+    setTargetCreatorId("");
+    setError(null);
+  }
+
+  function move() {
+    if (!targetCreatorId) return;
+    startTransition(async () => {
+      const { error } = await moveDraftWeekToCreator(contentWeekId, targetCreatorId);
+      if (error) {
+        setError(error);
+        return;
+      }
+      close();
+      const url = new URL(window.location.href);
+      url.searchParams.set("creatorId", targetCreatorId);
+      router.push(`${url.pathname}${url.search}`);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-raised"
+      >
+        Move to another creator
+      </button>
+
+      {isOpen && (
+        <Modal title="Move this week to another creator" onClose={close}>
+          <div className="flex flex-col gap-4 text-sm">
+            <p className="text-muted">
+              All {reelCount} reel{reelCount === 1 ? "" : "s"} in {currentName}&apos;s draft for this week will move
+              to the same week for the creator you pick. If they already have a draft for this week, the reels are
+              added to the end of it.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">Move to</label>
+              <select
+                value={targetCreatorId}
+                onChange={(e) => setTargetCreatorId(e.target.value)}
+                disabled={isPending}
+                className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+              >
+                <option value="">Select a creator</option>
+                {options.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {error && <p className="text-xs text-danger">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={close}
+                disabled={isPending}
+                className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-raised"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={move}
+                disabled={isPending || !targetCreatorId}
+                className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {isPending ? "Moving…" : targetName ? `Move to ${targetName}` : "Move"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
