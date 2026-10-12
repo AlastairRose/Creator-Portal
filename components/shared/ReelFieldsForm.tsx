@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ReelDraftFields } from "@/lib/actions/creative-direction";
 
 const textFieldClass =
@@ -88,12 +89,11 @@ export default function ReelFieldsForm({
           />
         </Field>
         <Field label="Location">
-          <input
-            value={fields.location ?? ""}
-            onChange={(e) => set("location", e.target.value)}
+          <LocationField
+            value={fields.location}
+            onChange={(v) => set("location", v)}
             onBlur={onBlurField}
             disabled={disabled}
-            className={textFieldClass}
           />
         </Field>
         <Field label="Filming style">
@@ -141,6 +141,83 @@ export default function ReelFieldsForm({
         </Field>
       </div>
       {footer}
+    </div>
+  );
+}
+
+// Fixed list so locations stay consistent (and the Reels to Film location
+// filter stays tidy). The chosen label is stored as-is in the location
+// column; "Other" stores whatever is typed in its text box instead. Older
+// free-text values that aren't in the list show up as "Other" + their text.
+export const LOCATION_OPTIONS = [
+  "At home",
+  "Public",
+  "Park",
+  "Mall",
+  "Restaurant",
+  "Car",
+  "Beach",
+  "Pool",
+] as const;
+
+const OTHER = "__other__";
+
+function LocationField({
+  value,
+  onChange,
+  onBlur,
+  disabled,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  onBlur?: () => void;
+  disabled: boolean;
+}) {
+  const trimmed = value?.trim() ?? "";
+  const isPreset = (LOCATION_OPTIONS as readonly string[]).includes(trimmed);
+  // "Other" picked but nothing typed yet has no stored value to derive it
+  // from, so remember that choice locally.
+  const [otherPicked, setOtherPicked] = useState(false);
+  const showOther = otherPicked || (trimmed !== "" && !isPreset);
+  const selectValue = showOther ? OTHER : trimmed;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <select
+        value={selectValue}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (next === OTHER) {
+            setOtherPicked(true);
+            onChange(null);
+          } else {
+            setOtherPicked(false);
+            onChange(next || null);
+          }
+        }}
+        onBlur={onBlur}
+        disabled={disabled}
+        className={textFieldClass}
+      >
+        <option value="">Select a location</option>
+        {LOCATION_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value={OTHER}>Other</option>
+      </select>
+      {showOther && (
+        <input
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          disabled={disabled}
+          placeholder="Describe the location"
+          autoFocus={otherPicked && trimmed === ""}
+          className={textFieldClass}
+        />
+      )}
     </div>
   );
 }
