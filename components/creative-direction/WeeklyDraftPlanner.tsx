@@ -8,7 +8,7 @@ import {
   deleteContentWeek,
   deleteDraftReel,
   ensureDraftWeek,
-  moveDraftWeekToCreator,
+  moveWeekToCreator,
   publishContentWeek,
   updateDraftReel,
   type ReelDraftFields,
@@ -182,9 +182,10 @@ export default function WeeklyDraftPlanner({
               Publish week
             </button>
           )}
-          {contentWeek && !isPublished && reels.length > 0 && selectedCreatorId && (
+          {contentWeek && reels.length > 0 && selectedCreatorId && (
             <MoveWeekButton
               contentWeekId={contentWeek.id}
+              isPublished={isPublished}
               currentCreatorId={selectedCreatorId}
               creators={creators}
               reelCount={reels.length}
@@ -715,11 +716,13 @@ function ReelCard({
 // same week for the creator picked here, then switches the view to them.
 function MoveWeekButton({
   contentWeekId,
+  isPublished,
   currentCreatorId,
   creators,
   reelCount,
 }: {
   contentWeekId: string;
+  isPublished: boolean;
   currentCreatorId: string;
   creators: Creator[];
   reelCount: number;
@@ -743,12 +746,13 @@ function MoveWeekButton({
   function move() {
     if (!targetCreatorId) return;
     startTransition(async () => {
-      const { error } = await moveDraftWeekToCreator(contentWeekId, targetCreatorId);
+      const { error, notice } = await moveWeekToCreator(contentWeekId, targetCreatorId);
       if (error) {
         setError(error);
         return;
       }
       close();
+      if (notice) window.alert(notice);
       const url = new URL(window.location.href);
       url.searchParams.set("creatorId", targetCreatorId);
       router.push(`${url.pathname}${url.search}`);
@@ -770,10 +774,16 @@ function MoveWeekButton({
         <Modal title="Move this week to another creator" onClose={close}>
           <div className="flex flex-col gap-4 text-sm">
             <p className="text-muted">
-              All {reelCount} reel{reelCount === 1 ? "" : "s"} in {currentName}&apos;s draft for this week will move
-              to the same week for the creator you pick. If they already have a draft for this week, the reels are
+              All {reelCount} reel{reelCount === 1 ? "" : "s"} in {currentName}&apos;s plan for this week will move
+              to the same week for the creator you pick. If they already have a plan for this week, the reels are
               added to the end of it.
             </p>
+            {isPublished && (
+              <p className="text-muted">
+                This week is published, so the reels will disappear from {currentName}&apos;s planner and show on the
+                new creator&apos;s straight away, with a new Drive upload folder for them.
+              </p>
+            )}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted">Move to</label>
               <select

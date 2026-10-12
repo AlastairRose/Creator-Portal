@@ -151,47 +151,52 @@ export async function deleteContentWeek(contentWeekId: string) {
   revalidatePath("/");
 }
 
-// For a week planned under the wrong creator: moves every reel in this draft
-// week to the same week for another creator (merging into that creator's
-// draft if they already have one), then removes the now-empty week. Reels
-// keep their ids, so nothing linked to them is lost. Only drafts can move —
-// once a week is published, its creator has already seen it.
+// For a week planned under the wrong creator: moves every reel in this week
+// to the same week for another creator, then removes the now-empty week.
+// Reels keep their ids, so nothing linked to them is lost.
+//
+// - No week yet for the target: one is created with the same status, so a
+//   published week stays published (and gets its own Drive folder).
+// - Target already has a week: the reels are added to the end of it and it
+//   keeps its own status — a published week is never quietly unpublished,
+//   and a draft is never quietly published along with whatever else is in it.
 //
 // Not a single transaction (supabase-js has none). The source week is only
 // deleted once every reel has moved, so a failure part-way never loses a
 // reel — at worst some are already under the new creator and the rest are
 // still in the original week, and running the move again finishes it.
 //
-// Returns the error rather than throwing — Next.js masks thrown server-action
+// Returns errors rather than throwing — Next.js masks thrown server-action
 // errors in production, which would hide the reason from staff.
-export async function moveDraftWeekToCreator(
+export async function moveWeekToCreator(
   contentWeekId: string,
   targetCreatorId: string
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; notice: string | null }> {
   await requireStaff();
+  let notice: string | null = null;
   try {
-    await moveDraftWeek(contentWeekId, targetCreatorId);
+    notice = await moveWeek(contentWeekId, targetCreatorId);
   } catch (err) {
     console.error("Couldn't move week to another creator:", err);
-    return { error: err instanceof Error ? err.message : "Couldn't move this week." };
+    return { error: err instanceof Error ? err.message : "Couldn't move this week.", notice: null };
   }
   revalidatePath("/creative-direction");
   revalidatePath("/planner");
+  revalidatePath("/reels-to-film");
   revalidatePath("/");
-  return { error: null };
+  return { error: null, notice };
 }
 
-async function moveDraftWeek(contentWeekId: string, targetCreatorId: string) {
+async function moveWeek(contentWeekId: string, targetCreatorId: string): Promise<string | null> {
   const supabase = await createClient();
 
   const { data: source, error: sourceError } = await supabase
     .from("content_weeks")
-    .select("id, creator_id, week_start_date, status")
+    .select("id, creator_id, week_start_date, status, published_at")
     .eq("id", contentWeekId)
     .single();
   if (sourceError || !source) throw new Error("Couldn't find that week.");
-  if (source.status !== "draft") throw new Error("Only draft weeks can be moved to another creator.");
-  if (source.creator_id === targetCreatorId) return;
+  if (source.creator_id === targetCreatorId) return null;
 
   const { data: existingTarget } = await supabase
     .from("content_weeks")
@@ -199,11 +204,25 @@ async function moveDraftWeek(contentWeekId: string, targetCreatorId: string) {
     .eq("creator_id", targetCreatorId)
     .eq("week_start_date", source.week_start_date)
     .maybeSingle();
-  if (existingTarget?.status === "published") {
-    throw new Error("That creator's plan for this week is already published, so these reels can't be moved into it.");
-  }
 
-  const targetWeekId = existingTarget?.id ?? (await ensureDraftWeek(targetCreatorId, source.week_start_date));
+  let targetWeekId: string;
+  let notice: string | null = null;
+  if (existingTarget) {
+    targetWeekId = existingTarget.id;
+    if (source.status === "published" && existingTarget.status === "draft") {
+      notice =
+        "That creator already had a draft for this week, so the reels were added to it and it's still a draft. Publish it when you're ready.";
+    }
+  } else {
+    targetWeekId = await ensureDraftWeek(targetCreatorId, source.week_start_date);
+    if (source.status === "published") {
+      const { error } = await supabase
+        .from("content_weeks")
+        .update({ status: "published", published_at: source.published_at ?? new Date().toISOString() })
+        .eq("id", targetWeekId);
+      if (error) throw new Error(error.message);
+    }
+  }
 
   // Moved reels go after any the target week already has.
   const { data: lastTargetReel } = await supabase
@@ -215,12 +234,6 @@ async function moveDraftWeek(contentWeekId: string, targetCreatorId: string) {
     .maybeSingle();
   const offset = lastTargetReel ? lastTargetReel.sort_order + 1 : 0;
 
-  const { data: reels, error: reelsError } = await supabase
-    .from("reels")
-    .select("id, sort_order")
-    .eq("content_week_id", contentWeekId);
-  if (reelsError) throw new Error(reelsError.message);
-
   if (offset === 0) {
     const { error } = await supabase
       .from("reels")
@@ -228,6 +241,11 @@ async function moveDraftWeek(contentWeekId: string, targetCreatorId: string) {
       .eq("content_week_id", contentWeekId);
     if (error) throw new Error(error.message);
   } else {
+    const { data: reels, error: reelsError } = await supabase
+      .from("reels")
+      .select("id, sort_order")
+      .eq("content_week_id", contentWeekId);
+    if (reelsError) throw new Error(reelsError.message);
     for (const reel of reels ?? []) {
       const { error } = await supabase
         .from("reels")
@@ -247,6 +265,21 @@ async function moveDraftWeek(contentWeekId: string, targetCreatorId: string) {
 
   const { error: deleteError } = await supabase.from("content_weeks").delete().eq("id", contentWeekId);
   if (deleteError) throw new Error(deleteError.message);
+
+  // A published week the target creator can now see needs its own upload
+  // folder. Best-effort, same as publishing: the move itself already worked.
+  if (!existingTarget && source.status === "published") {
+    try {
+      await createWeekDriveFolderIfMissing(targetWeekId);
+    } catch (err) {
+      console.error("Couldn't create Drive folder for moved week:", err);
+      notice = `The reels moved, but the new week's Google Drive folder couldn't be created: ${
+        err instanceof Error ? err.message : "unknown error"
+      }. Use "Create Drive folder" on the Content Planner to retry.`;
+    }
+  }
+
+  return notice;
 }
 
 // Returns driveFolderError when publishing succeeded but the Drive folder
