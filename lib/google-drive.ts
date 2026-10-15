@@ -245,3 +245,63 @@ export async function ensureWeekDriveFolder(
   const weekFolderId = await findOrCreateFolder(accessToken, `Week of ${weekStartDate}`, parentId);
   return `https://drive.google.com/drive/folders/${weekFolderId}`;
 }
+
+export type DriveFile = {
+  id: string;
+  name: string;
+  createdTime: string;
+  uploadedBy: string | null;
+};
+
+// Lists every file (not folder) inside a folder, including inside subfolders
+// up to a few levels deep — creators sometimes upload a whole folder of clips.
+// Throws if Drive isn't connected; returns null if the folder itself can't be
+// reached (deleted, or not shared with the connected account) so one bad link
+// doesn't stop the others being checked.
+export async function listFilesInFolderTree(folderId: string, maxDepth = 3): Promise<DriveFile[] | null> {
+  const connection = await getConnectionForServerUse();
+  if (!connection) throw new Error("Google Drive isn't connected.");
+  const accessToken = await getValidAccessToken(connection);
+
+  const files: DriveFile[] = [];
+  let level = [folderId];
+  for (let depth = 0; depth <= maxDepth && level.length > 0; depth++) {
+    const nextLevel: string[] = [];
+    for (const parentId of level) {
+      let pageToken: string | undefined;
+      do {
+        const params = new URLSearchParams({
+          q: `'${parentId}' in parents and trashed = false`,
+          fields: "nextPageToken, files(id, name, mimeType, createdTime, lastModifyingUser(displayName))",
+          pageSize: "1000",
+          supportsAllDrives: "true",
+          includeItemsFromAllDrives: "true",
+        });
+        if (pageToken) params.set("pageToken", pageToken);
+        const res = await fetch(`${DRIVE_API}/files?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) {
+          if (depth === 0 && (res.status === 404 || res.status === 403)) return null;
+          throw new Error(`Couldn't list Drive folder: ${await res.text()}`);
+        }
+        const data = await res.json();
+        for (const f of data.files ?? []) {
+          if (f.mimeType === "application/vnd.google-apps.folder") {
+            nextLevel.push(f.id);
+          } else {
+            files.push({
+              id: f.id,
+              name: f.name,
+              createdTime: f.createdTime,
+              uploadedBy: f.lastModifyingUser?.displayName ?? null,
+            });
+          }
+        }
+        pageToken = data.nextPageToken;
+      } while (pageToken);
+    }
+    level = nextLevel;
+  }
+  return files;
+}
