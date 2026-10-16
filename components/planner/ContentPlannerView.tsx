@@ -11,6 +11,7 @@ import type {
   Reel,
 } from "@/lib/types";
 import ReelsToFilmSection from "./ReelsToFilmSection";
+import GeneralReelsFolderButton from "./GeneralReelsFolderButton";
 import OnlyfansContentSection from "./OnlyfansContentSection";
 import OutstandingCustomsSection from "./OutstandingCustomsSection";
 
@@ -54,6 +55,8 @@ export default function ContentPlannerView({
           <WeekPicker weekStartDate={weekStartDate} onChange={navigateWeek} />
         </div>
       </div>
+
+      <GeneralReelsFolderButton href={driveLinks?.weekly_root_drive_link} isStaff={isStaff} />
 
       {!contentWeek ? (
         <div className="rounded-lg border border-border p-6 text-center text-sm text-muted">

@@ -1,8 +1,9 @@
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
-import { getCreators, getCreator, getContentWeek, getReelsForWeek } from "@/lib/queries";
+import { getCreators, getCreator, getContentWeek, getCreatorDriveLinks, getReelsForWeek } from "@/lib/queries";
 import { getCurrentWeekStart } from "@/lib/weeks";
 import ReelsToFilmSection from "@/components/planner/ReelsToFilmSection";
 import DriveUploadButton from "@/components/shared/DriveUploadButton";
+import GeneralReelsFolderButton from "@/components/planner/GeneralReelsFolderButton";
 
 export default async function ReelsToFilmPage({
   searchParams,
@@ -20,7 +21,10 @@ export default async function ReelsToFilmPage({
     if (!profile.creator_id) {
       return <p className="text-sm text-muted">No creator profile is linked to your account yet.</p>;
     }
-    const contentWeek = await getContentWeek(profile.creator_id, weekStartDate);
+    const [contentWeek, driveLinks] = await Promise.all([
+      getContentWeek(profile.creator_id, weekStartDate),
+      getCreatorDriveLinks(profile.creator_id),
+    ]);
     const reels = contentWeek ? await getReelsForWeek(contentWeek.id) : [];
 
     return (
@@ -39,7 +43,10 @@ export default async function ReelsToFilmPage({
             <li>For any extra ideas you film, please use the Submit Own Idea button to brief the video editor.</li>
           </ul>
         </div>
-        {contentWeek?.drive_link && <DriveUploadButton href={contentWeek.drive_link} label="Upload Reels Here" />}
+        <div className="flex flex-wrap items-start gap-4">
+          {contentWeek?.drive_link && <DriveUploadButton href={contentWeek.drive_link} label="Upload Reels Here" />}
+          <GeneralReelsFolderButton href={driveLinks?.weekly_root_drive_link} isStaff={false} />
+        </div>
         <ReelsToFilmSection reels={reels} isStaff={false} />
       </div>
     );

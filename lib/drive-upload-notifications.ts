@@ -13,6 +13,9 @@ type WatchedFolder = {
   folderUrl: string;
   creatorName: string;
   label: string;
+  // The general folder holds every weekly folder, so only look one level in
+  // (loose files, plus anything inside a folder uploaded straight into it).
+  maxDepth?: number;
 };
 
 type FolderUpdate = WatchedFolder & { newFiles: DriveFile[] };
@@ -43,7 +46,7 @@ export async function checkDriveUploads(admin: SupabaseClient) {
   for (const folder of folders) {
     let files: DriveFile[] | null;
     try {
-      files = await listFilesInFolderTree(folder.folderId);
+      files = await listFilesInFolderTree(folder.folderId, folder.maxDepth);
     } catch (err) {
       console.error(`Couldn't check Drive folder for ${folder.creatorName} (${folder.label}):`, err);
       continue;
@@ -107,7 +110,7 @@ async function getWatchedFolders(admin: SupabaseClient): Promise<WatchedFolder[]
         .eq("status", "published")
         .gte("week_start_date", since)
         .not("drive_link", "is", null),
-      admin.from("creator_drive_links").select("creator_id, onlyfans_drive_link, customs_drive_link"),
+      admin.from("creator_drive_links").select("creator_id, onlyfans_drive_link, customs_drive_link, weekly_root_drive_link"),
     ]);
   if (creatorsError) throw new Error(creatorsError.message);
   if (weeksError) throw new Error(weeksError.message);
@@ -118,12 +121,12 @@ async function getWatchedFolders(admin: SupabaseClient): Promise<WatchedFolder[]
   );
 
   const folders: WatchedFolder[] = [];
-  const add = (creatorId: string, link: string | null, label: string) => {
+  const add = (creatorId: string, link: string | null, label: string, maxDepth?: number) => {
     const creatorName = activeCreators.get(creatorId);
     if (!creatorName || !link) return;
     const folderId = extractFolderId(link);
     if (!folderId) return;
-    folders.push({ folderId, folderUrl: link, creatorName, label });
+    folders.push({ folderId, folderUrl: link, creatorName, label, maxDepth });
   };
 
   for (const w of weeks ?? []) add(w.creator_id, w.drive_link, `Reels — week of ${formatWeek(w.week_start_date)}`);
@@ -131,6 +134,8 @@ async function getWatchedFolders(admin: SupabaseClient): Promise<WatchedFolder[]
     add(l.creator_id, l.onlyfans_drive_link, "OnlyFans content");
     add(l.creator_id, l.customs_drive_link, "Customs");
   }
+  // Last, so a file inside a weekly folder is reported under its week, not here.
+  for (const l of links ?? []) add(l.creator_id, l.weekly_root_drive_link, "General reels folder", 1);
   return folders;
 }
 
