@@ -92,7 +92,16 @@ function CreatorCustomCard({ custom }: { custom: OutstandingCustom }) {
 
   function markUploaded() {
     startTransition(async () => {
-      await markCustomUploaded(custom.id);
+      try {
+        const { error } = await markCustomUploaded(custom.id);
+        if (error) {
+          window.alert(`Couldn't mark this custom uploaded: ${error}`);
+          return;
+        }
+      } catch (err) {
+        window.alert(`Couldn't mark this custom uploaded: ${err instanceof Error ? err.message : "unknown error"}`);
+        return;
+      }
       router.refresh();
     });
   }
@@ -323,7 +332,16 @@ function StatusActions({
 
   function move(status: OutstandingCustomStatus) {
     startTransition(async () => {
-      await setCustomStatus(custom.id, status);
+      try {
+        const { error } = await setCustomStatus(custom.id, status);
+        if (error) {
+          window.alert(`Couldn't move this custom: ${error}`);
+          return;
+        }
+      } catch (err) {
+        window.alert(`Couldn't move this custom: ${err instanceof Error ? err.message : "unknown error"}`);
+        return;
+      }
       router.refresh();
     });
   }

@@ -89,20 +89,32 @@ export async function removeChatScreenshot(id: string, path: string) {
 // No role check — RLS + the creator-update trigger are the real boundary.
 // A creator's session can only ever flip their own 'outstanding' rows to
 // 'uploaded', and can't touch any other field or status value.
-export async function markCustomUploaded(id: string) {
+//
+// Returns the error rather than throwing — Next.js masks thrown server-action
+// errors in production behind a generic "server error" page.
+export async function markCustomUploaded(id: string): Promise<{ error: string | null }> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("outstanding_customs")
     .update({ status: "uploaded", uploaded_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    console.error("markCustomUploaded failed:", error);
+    return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "This custom couldn't be updated. It may already have been marked uploaded. Refresh the page." };
+  }
   revalidatePath("/planner");
+  revalidatePath("/outstanding-customs");
+  return { error: null };
 }
 
 // Staff-only: moves a custom between to_do_later / outstanding / uploaded /
 // sent — e.g. once payment clears (to_do_later -> outstanding), or once the
 // chat manager/owner has sent the finished content (uploaded -> sent).
-export async function setCustomStatus(id: string, status: OutstandingCustomStatus) {
+export async function setCustomStatus(id: string, status: OutstandingCustomStatus): Promise<{ error: string | null }> {
   await requireStaff();
   const supabase = await createClient();
   const { error } = await supabase
@@ -110,10 +122,16 @@ export async function setCustomStatus(id: string, status: OutstandingCustomStatu
     .update({
       status,
       completed_at: status === "sent" ? new Date().toISOString() : null,
+      ...(status === "uploaded" ? { uploaded_at: new Date().toISOString() } : {}),
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("setCustomStatus failed:", error);
+    return { error: error.message };
+  }
   revalidatePath("/planner");
+  revalidatePath("/outstanding-customs");
+  return { error: null };
 }
 
 export async function deleteOutstandingCustom(id: string) {
