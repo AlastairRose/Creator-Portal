@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentProfile, isStaffRole, requireStaff } from "@/lib/roles";
 import { deleteChatScreenshot, uploadChatScreenshot } from "@/lib/storage";
 import type { OutstandingCustomStatus } from "@/lib/types";
 
@@ -86,25 +87,48 @@ export async function removeChatScreenshot(id: string, path: string) {
   revalidatePath("/planner");
 }
 
-// No role check — RLS + the creator-update trigger are the real boundary.
-// A creator's session can only ever flip their own 'outstanding' rows to
-// 'uploaded', and can't touch any other field or status value.
+// A creator can only flip their OWN custom from 'outstanding' to 'uploaded'.
+//
+// This can't go through the creator's own session: Postgres checks the
+// updated row against the SELECT policy too, and creators can only see
+// 'outstanding' customs — so the moment the row becomes 'uploaded' it fails
+// with "new row violates row-level security policy". Instead the checks are
+// done here and the update runs with the server's own access.
 //
 // Returns the error rather than throwing — Next.js masks thrown server-action
 // errors in production behind a generic "server error" page.
 export async function markCustomUploaded(id: string): Promise<{ error: string | null }> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const profile = await getCurrentProfile();
+  if (!profile) return { error: "You're signed out. Sign in again and retry." };
+
+  const admin = createAdminClient();
+  const { data: custom, error: fetchError } = await admin
+    .from("outstanding_customs")
+    .select("creator_id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchError) {
+    console.error("markCustomUploaded fetch failed:", fetchError);
+    return { error: fetchError.message };
+  }
+  if (!custom) return { error: "This custom no longer exists. Refresh the page." };
+
+  const isStaff = isStaffRole(profile.role);
+  if (!isStaff && (profile.role !== "creator" || custom.creator_id !== profile.creator_id)) {
+    return { error: "You can only mark your own customs as uploaded." };
+  }
+  if (custom.status !== "outstanding") {
+    return { error: "This custom has already been marked uploaded. Refresh the page." };
+  }
+
+  const { error } = await admin
     .from("outstanding_customs")
     .update({ status: "uploaded", uploaded_at: new Date().toISOString() })
     .eq("id", id)
-    .select("id");
+    .eq("status", "outstanding");
   if (error) {
     console.error("markCustomUploaded failed:", error);
     return { error: error.message };
-  }
-  if (!data || data.length === 0) {
-    return { error: "This custom couldn't be updated. It may already have been marked uploaded. Refresh the page." };
   }
   revalidatePath("/planner");
   revalidatePath("/outstanding-customs");
