@@ -20,7 +20,7 @@ type WatchedFolder = {
 
 type FolderUpdate = WatchedFolder & { newFiles: DriveFile[] };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://creator-portal-tan.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lbc-creator.app";
 
 // Run on a schedule. Emails all staff one digest listing any new files in
 // creators' upload folders since the last run. The first time a folder is
