@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
+import { notifyCreator } from "@/lib/push";
 import type { ContentRequestUrgency, OnlyfansContentType } from "@/lib/types";
 
 export type OnlyfansSextingItemFields = {
@@ -72,6 +73,9 @@ export async function createOnlyfansRequest(creatorId: string, fields: OnlyfansR
       creator_id: creatorId,
       urgency: fields.urgency,
       created_by: profile.id,
+      // Starts hidden from the creator; "Publish list" reveals every draft at
+      // once and sends one notification instead of one per request.
+      draft: true,
       ...request,
     })
     .select("id")
@@ -173,4 +177,34 @@ export async function deleteOnlyfansRequest(id: string) {
   const { error } = await supabase.from("onlyfans_content_requests").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/planner");
+}
+
+// Reveals every draft request for this creator at once and sends the
+// creator a single phone notification for the whole list.
+export async function publishOnlyfansDrafts(creatorId: string): Promise<{ error: string | null; published: number }> {
+  await requireStaff();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("onlyfans_content_requests")
+    .update({ draft: false, published_at: new Date().toISOString() })
+    .eq("creator_id", creatorId)
+    .eq("draft", true)
+    .select("id");
+  if (error) {
+    console.error("publishOnlyfansDrafts failed:", error);
+    return { error: error.message, published: 0 };
+  }
+  const published = data?.length ?? 0;
+  if (published > 0) {
+    await notifyCreator(creatorId, {
+      title: "New content requests",
+      body: `You have ${published} new content request${published === 1 ? "" : "s"} waiting in your planner.`,
+      url: "/planner",
+      tag: "onlyfans-requests",
+    });
+  }
+  revalidatePath("/planner");
+  revalidatePath("/onlyfans-content");
+  revalidatePath("/");
+  return { error: null, published };
 }

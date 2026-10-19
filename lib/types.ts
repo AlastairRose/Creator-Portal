@@ -137,6 +137,9 @@ export type OnlyfansContentRequest = {
   status: "open" | "completed";
   completed_at: string | null;
   notes: string | null;
+  // Drafts are only visible to staff until "Publish list" is clicked.
+  draft: boolean;
+  published_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

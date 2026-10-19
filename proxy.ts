@@ -39,6 +39,11 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Home-screen app files: phones fetch these without a session cookie.
+  if (request.nextUrl.pathname === "/sw.js" || request.nextUrl.pathname === "/manifest.webmanifest") {
+    return response;
+  }
+
   // Vercel Cron invokes these with no session cookie at all (it authenticates
   // via the route's own CRON_SECRET check instead) — without this, every
   // cron call was silently redirected to /login before ever reaching the

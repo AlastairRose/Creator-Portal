@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile, isStaffRole, requireStaff } from "@/lib/roles";
 import { deleteChatScreenshot, uploadChatScreenshot } from "@/lib/storage";
+import { notifyCreator } from "@/lib/push";
+import { formatDateUK } from "@/lib/format";
 import type { OutstandingCustomStatus } from "@/lib/types";
 
 export type CustomFields = {
@@ -141,6 +143,11 @@ export async function markCustomUploaded(id: string): Promise<{ error: string | 
 export async function setCustomStatus(id: string, status: OutstandingCustomStatus): Promise<{ error: string | null }> {
   await requireStaff();
   const supabase = await createClient();
+  const { data: before } = await supabase
+    .from("outstanding_customs")
+    .select("creator_id, status, due_by")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await supabase
     .from("outstanding_customs")
     .update({
@@ -152,6 +159,17 @@ export async function setCustomStatus(id: string, status: OutstandingCustomStatu
   if (error) {
     console.error("setCustomStatus failed:", error);
     return { error: error.message };
+  }
+  // A "to do later" custom (e.g. awaiting payment) becomes visible to the
+  // creator once moved to Outstanding, so that's when she hears about it.
+  if (before && before.status === "to_do_later" && status === "outstanding") {
+    await notifyCreator(before.creator_id, {
+      title: "New custom request",
+      body: before.due_by
+        ? `You have a new custom request, due ${formatDateUK(before.due_by)}.`
+        : "You have a new custom request.",
+      url: "/planner",
+    });
   }
   revalidatePath("/planner");
   revalidatePath("/outstanding-customs");

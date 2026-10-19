@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
 import { getMissingReelFields } from "@/lib/reels";
 import { ensureWeekDriveFolder, extractFolderId } from "@/lib/google-drive";
+import { notifyCreator } from "@/lib/push";
+import { formatDateUK } from "@/lib/format";
 
 // Finds this creator's draft content_week for the given week, creating one
 // if it doesn't exist yet. Small race window if two staff hit this at the
@@ -273,6 +275,7 @@ async function moveWeek(contentWeekId: string, targetCreatorId: string): Promise
   // A published week the target creator can now see needs its own upload
   // folder. Best-effort, same as publishing: the move itself already worked.
   if (!existingTarget && source.status === "published") {
+    await notifyWeekPublished(targetWeekId);
     try {
       await createWeekDriveFolderIfMissing(targetWeekId);
     } catch (err) {
@@ -307,10 +310,41 @@ export async function publishContentWeek(contentWeekId: string): Promise<{ drive
     driveFolderError = err instanceof Error ? err.message : "Couldn't create the Drive folder.";
   }
 
+  await notifyWeekPublished(contentWeekId);
+
   revalidatePath("/creative-direction");
   revalidatePath("/planner");
   revalidatePath("/");
   return { driveFolderError };
+}
+
+// Phone notification to the creator that a week of reels is ready to film.
+// Best-effort: notifyCreator never throws.
+async function notifyWeekPublished(contentWeekId: string) {
+  try {
+    const supabase = await createClient();
+    const { data: week } = await supabase
+      .from("content_weeks")
+      .select("creator_id, week_start_date")
+      .eq("id", contentWeekId)
+      .single();
+    if (!week) return;
+    const { count } = await supabase
+      .from("reels")
+      .select("id", { count: "exact", head: true })
+      .eq("content_week_id", contentWeekId);
+    const reels = count ?? 0;
+    await notifyCreator(week.creator_id, {
+      title: "New reels to film",
+      body: `Your plan for the week of ${formatDateUK(week.week_start_date)} is ready${
+        reels > 0 ? ` with ${reels} reel${reels === 1 ? "" : "s"}` : ""
+      }.`,
+      url: `/planner/${week.creator_id}?week=${week.week_start_date}`,
+      tag: `week-${week.week_start_date}`,
+    });
+  } catch (err) {
+    console.error("Couldn't send week-published notification:", err);
+  }
 }
 
 // For weeks that were published without a folder (e.g. before Drive was

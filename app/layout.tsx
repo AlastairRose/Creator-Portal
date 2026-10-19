@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Creator Portal",
   description: "Creator content planning, tracking, and reporting",
+  // Home-screen app support (iPhones require this for notifications).
+  appleWebApp: { capable: true, title: "Creator Portal", statusBarStyle: "black-translucent" },
+  icons: { apple: "/apple-touch-icon.png", icon: "/icon-192.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#111114",
 };
 
 // Runs before hydration so the correct theme applies with no flash of the

@@ -6,6 +6,7 @@ import {
   createOnlyfansRequest,
   deleteOnlyfansRequest,
   markOnlyfansRequestComplete,
+  publishOnlyfansDrafts,
   updateOnlyfansRequest,
   updateOnlyfansRequestUrgency,
   type OnlyfansRequestFields,
@@ -67,6 +68,25 @@ export default function OnlyfansContentSection({
   // outstanding.
   const openRequests = [...requests].filter((r) => r.status === "open").sort(compareRequests);
   const columnCount = isStaff ? 7 : 6;
+  const draftCount = openRequests.filter((r) => r.draft).length;
+  const [isPublishing, startPublishing] = useTransition();
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  function publishDrafts() {
+    setPublishError(null);
+    startPublishing(async () => {
+      try {
+        const { error } = await publishOnlyfansDrafts(creatorId);
+        if (error) {
+          setPublishError(error);
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        setPublishError(err instanceof Error ? err.message : "Couldn't publish the list.");
+      }
+    });
+  }
 
   return (
     <section className="flex flex-col gap-3">
@@ -115,13 +135,33 @@ export default function OnlyfansContentSection({
       </div>
 
       {isStaff && (
-        <button
-          type="button"
-          onClick={() => setIsAddOpen(true)}
-          className="self-start rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          + Add content request
-        </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsAddOpen(true)}
+              className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-raised"
+            >
+              + Add content request
+            </button>
+            {draftCount > 0 && (
+              <button
+                type="button"
+                onClick={publishDrafts}
+                disabled={isPublishing}
+                className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {isPublishing ? "Publishing…" : `Publish list (${draftCount} new)`}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-muted">
+            {draftCount > 0
+              ? "Drafts aren't visible to the creator yet. Publishing shows them all and sends her one notification."
+              : "New requests start as drafts. Add as many as you need, then publish them together."}
+          </p>
+          {publishError && <p className="text-xs text-danger">{publishError}</p>}
+        </div>
       )}
 
       {isAddOpen && (
@@ -294,6 +334,11 @@ function RequestRow({
             <span onClick={() => isSexting && setIsExpanded((v) => !v)}>
               {ONLYFANS_CONTENT_TYPE_LABELS[request.content_type]}
             </span>
+            {isStaff && request.draft && (
+              <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning">
+                Draft
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setShowMobileDetail(true)}

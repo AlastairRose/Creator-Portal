@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { signOutAction } from "@/lib/actions/auth";
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
 import AppSidebar from "@/components/shared/AppSidebar";
+import NotificationSetup from "@/components/shared/NotificationSetup";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
@@ -32,7 +33,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         role={profile.role}
         signOutAction={signOutAction}
       />
-      <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+      <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+        {/* Phone notifications are for creators (new customs, reels, content requests). */}
+        {profile.role === "creator" && <NotificationSetup />}
+        {children}
+      </main>
     </div>
   );
 }

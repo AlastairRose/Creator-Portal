@@ -3,6 +3,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadChatScreenshot } from "@/lib/storage";
 import { defaultDueBy } from "@/lib/customs";
+import { notifyCreator } from "@/lib/push";
+import { formatDateUK } from "@/lib/format";
 
 // Public, unauthenticated intake — the sales team submits this via a plain
 // shared link scoped to one creator, same as the old Airtable form. No
@@ -57,6 +59,13 @@ export async function submitOutstandingCustomIntake(
     due_by: defaultDueBy(requestedAt),
   });
   if (error) return { error: error.message, success: false };
+
+  // Kept neutral on purpose: this shows on the creator's lock screen.
+  await notifyCreator(creatorId, {
+    title: "New custom request",
+    body: `You have a new custom request, due ${formatDateUK(defaultDueBy(requestedAt))}.`,
+    url: "/planner",
+  });
 
   return { error: null, success: true };
 }
