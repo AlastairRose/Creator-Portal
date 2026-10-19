@@ -83,7 +83,6 @@ export const FIELD_GROUPS: FieldGroup[] = [
     "Dominant play",
     "Submissive play",
     "Roleplay",
-    "Ageplay",
     "Raceplay",
   ]),
 ];
