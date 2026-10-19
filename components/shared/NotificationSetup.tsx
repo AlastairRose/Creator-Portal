@@ -85,7 +85,7 @@ async function getRegistration(): Promise<ServiceWorkerRegistration> {
   return navigator.serviceWorker.ready;
 }
 
-export default function NotificationSetup() {
+function useNotificationSetup(autoOpen: boolean) {
   const [platform, setPlatform] = useState<Platform>("desktop");
   const [status, setStatus] = useState<Status>("checking");
   const [isOpen, setIsOpen] = useState(false);
@@ -144,12 +144,14 @@ export default function NotificationSetup() {
       if (cancelled) return;
       setPlatform(detectPlatform());
       setStatus(s);
-      if (s !== "enabled" && s !== "enabled-elsewhere" && s !== "unsupported" && !readSnoozed()) setIsOpen(true);
+      if (autoOpen && s !== "enabled" && s !== "enabled-elsewhere" && s !== "unsupported" && !readSnoozed()) {
+        setIsOpen(true);
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [evaluate]);
+  }, [evaluate, autoOpen]);
 
   function close() {
     writeSnooze();
@@ -209,6 +211,64 @@ export default function NotificationSetup() {
       setTestSent(false);
     });
   }
+
+  return { platform, status, isOpen, setIsOpen, error, testSent, isPending, close, turnOn, turnOff };
+}
+
+// Inline version used as a step in creator onboarding: always shows the
+// device-specific guide in place (no pop-up, no banner).
+export function NotificationSetupInline({ onEnabledChange }: { onEnabledChange?: (enabled: boolean) => void }) {
+  const { platform, status, error, testSent, isPending, turnOn, turnOff } = useNotificationSetup(false);
+  const enabled = status === "enabled" || status === "enabled-elsewhere";
+
+  useEffect(() => {
+    if (status !== "checking") onEnabledChange?.(enabled);
+  }, [status, enabled, onEnabledChange]);
+
+  if (status === "checking") return <p className="text-sm text-muted">Checking this device…</p>;
+  if (status === "unsupported") {
+    return (
+      <p className="text-sm text-muted">
+        This browser can&apos;t show notifications. Open the portal on your phone to set them up, or skip this step for
+        now.
+      </p>
+    );
+  }
+  if (status === "enabled-elsewhere") {
+    return <p className="text-sm text-success">✓ Notifications are already on for your account on another device.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <GuideBody status={status} platform={platform} />
+      {error && <p className="text-sm text-danger">{error}</p>}
+      {status === "ready" && (
+        <button
+          type="button"
+          onClick={turnOn}
+          disabled={isPending}
+          className="w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {isPending ? "Turning on…" : "Turn on notifications"}
+        </button>
+      )}
+      {status === "enabled" && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-success">
+            {testSent ? "✓ We've sent you a test notification." : "✓ This device will get notifications."}
+          </p>
+          <button type="button" onClick={turnOff} disabled={isPending} className="self-start text-xs text-muted hover:underline">
+            Turn off notifications on this device
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function NotificationSetup() {
+  const { platform, status, isOpen, setIsOpen, error, testSent, isPending, close, turnOn, turnOff } =
+    useNotificationSetup(true);
 
   if (status === "checking" || status === "unsupported" || status === "enabled-elsewhere") return null;
 

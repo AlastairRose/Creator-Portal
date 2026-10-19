@@ -2,10 +2,20 @@ import { requireStaff } from "@/lib/roles";
 import { getCreators } from "@/lib/queries";
 import NewCreatorForm from "@/components/admin/NewCreatorForm";
 import { getCreatorNotificationStatuses, type CreatorNotificationStatus } from "@/lib/push";
+import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { computeOnboardingState, type OnboardingRow } from "@/lib/onboarding/state";
 
 export default async function CreatorsPage() {
   await requireStaff();
-  const [creators, notificationStatuses] = await Promise.all([getCreators(), getCreatorNotificationStatuses()]);
+  const [creators, notificationStatuses, onboardingRows] = await Promise.all([
+    getCreators(),
+    getCreatorNotificationStatuses(),
+    createAdminClient()
+      .from("creator_onboarding")
+      .select("*")
+      .then(({ data }) => new Map(((data ?? []) as OnboardingRow[]).map((r) => [r.creator_id, r]))),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,6 +36,7 @@ export default async function CreatorsPage() {
               <th className="px-4 py-3 font-medium">IG handle</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Phone notifications</th>
+              <th className="px-4 py-3 font-medium">Onboarding</th>
             </tr>
           </thead>
           <tbody>
@@ -47,11 +58,14 @@ export default async function CreatorsPage() {
                 <td className="px-4 py-3">
                   <NotificationCell status={notificationStatuses ? notificationStatuses.get(creator.id) ?? null : undefined} />
                 </td>
+                <td className="px-4 py-3">
+                  <OnboardingCell creatorId={creator.id} row={onboardingRows.get(creator.id) ?? null} />
+                </td>
               </tr>
             ))}
             {creators.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-muted">
+                <td colSpan={5} className="px-4 py-6 text-center text-muted">
                   No creators yet.
                 </td>
               </tr>
@@ -74,5 +88,26 @@ function NotificationCell({ status }: { status: CreatorNotificationStatus | null
     <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs text-success">
       On · {status.devices.join(", ")}
     </span>
+  );
+}
+
+function OnboardingCell({ creatorId, row }: { creatorId: string; row: OnboardingRow | null }) {
+  const state = computeOnboardingState(row);
+  const label = state.exempt
+    ? "Not required"
+    : state.allDone
+      ? "Complete"
+      : !state.done.agreement
+        ? "Not started"
+        : `In progress (${Object.values(state.done).filter(Boolean).length}/5)`;
+  const tone = state.exempt
+    ? "bg-surface-raised text-muted"
+    : state.allDone
+      ? "bg-success/15 text-success"
+      : "bg-warning/15 text-warning";
+  return (
+    <Link href={`/admin/creators/${creatorId}/onboarding`} className={`rounded-full px-2.5 py-1 text-xs hover:opacity-80 ${tone}`}>
+      {label}
+    </Link>
   );
 }
