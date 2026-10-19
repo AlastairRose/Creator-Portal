@@ -6,6 +6,7 @@ import { getCurrentProfile, isStaffRole } from "@/lib/roles";
 import { decryptSecret } from "@/lib/onboarding/crypto";
 import { syncModelInfoToChatterPortal } from "@/lib/onboarding/chatter-portal";
 import { toEmbedUrl } from "@/lib/onboarding/video";
+import { notifyCreator } from "@/lib/push";
 
 // Staff-side onboarding actions. Role checks happen here because these use
 // the service-role client: owner for settings and passwords, management
@@ -165,6 +166,12 @@ export async function countersignAgreement(input: {
     .eq("id", agreement.id)
     .is("countersigned_at", null);
   if (error) return { error: error.message };
+
+  await notifyCreator(agreement.creator_id, {
+    title: "Your agreement is signed",
+    body: "Your agreement has been countersigned. You can view or download it any time under My Agreement.",
+    url: "/agreement",
+  });
 
   revalidatePath(`/admin/creators/${agreement.creator_id}/onboarding`);
   revalidatePath("/admin/creators");

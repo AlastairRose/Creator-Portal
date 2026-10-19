@@ -112,6 +112,9 @@ export default async function CreatorOnboardingPage({ params }: { params: Promis
               ) : (
                 <p className="text-sm text-warning">Waiting for the owner to countersign.</p>
               )}
+              <Link href={`/agreement/${creatorId}`} className="self-start text-sm text-accent hover:underline">
+                Open the signed document (download / print)
+              </Link>
               <details className="rounded-md border border-border p-3">
                 <summary className="cursor-pointer text-sm font-medium">Read the signed copy</summary>
                 <h3 className="mt-3 text-sm font-semibold">{agreement.agreement_title}</h3>
