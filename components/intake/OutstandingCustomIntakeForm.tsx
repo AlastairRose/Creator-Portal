@@ -26,6 +26,11 @@ export default function OutstandingCustomIntakeForm({ creatorId }: { creatorId: 
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
+      <Field label="Your name (chatter)">
+        <input name="chatter_name" required maxLength={100} autoComplete="name" className={fieldClass} />
+        <p className="text-xs text-muted">Only management can see this. It isn&apos;t shown to the creator.</p>
+      </Field>
+
       <div className="grid grid-cols-2 gap-4">
         <Field label="Sub username">
           <input name="sub_username" className={fieldClass} />

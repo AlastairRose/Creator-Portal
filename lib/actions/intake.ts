@@ -21,6 +21,8 @@ export async function submitOutstandingCustomIntake(
 ): Promise<IntakeState> {
   const description = String(formData.get("description") ?? "").trim();
   if (!description) return { error: "Description can't be empty.", success: false };
+  const chatterName = String(formData.get("chatter_name") ?? "").trim().slice(0, 100);
+  if (!chatterName) return { error: "Add your name so management knows who logged this.", success: false };
 
   const field = (name: string) => String(formData.get(name) ?? "").trim() || null;
 
@@ -39,7 +41,7 @@ export async function submitOutstandingCustomIntake(
   const requestedAt = new Date();
 
   const admin = createAdminClient();
-  const { error } = await admin.from("outstanding_customs").insert({
+  const { data: inserted, error } = await admin.from("outstanding_customs").insert({
     creator_id: creatorId,
     status: "outstanding",
     description,
@@ -57,8 +59,15 @@ export async function submitOutstandingCustomIntake(
     // Due date is automatic — 72 hours from submission — not something the
     // sales team sets themselves.
     due_by: defaultDueBy(requestedAt),
-  });
+  }).select("id").single();
   if (error) return { error: error.message, success: false };
+
+  // Management-only (see custom_chatter_names). The custom itself is already
+  // saved, so a failure here is logged rather than failing the submission.
+  const { error: chatterError } = await admin
+    .from("custom_chatter_names")
+    .insert({ custom_id: inserted.id, chatter_name: chatterName });
+  if (chatterError) console.error("Couldn't save chatter name for custom:", chatterError);
 
   // Kept neutral on purpose: this shows on the creator's lock screen.
   await notifyCreator(creatorId, {

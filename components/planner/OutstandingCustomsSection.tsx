@@ -279,6 +279,7 @@ function StaffCustomRow({
               {name}
             </button>
             <span className="font-medium sm:hidden">{name}</span>
+            {custom.chatter_name && <span className="text-xs text-muted">Chatter: {custom.chatter_name}</span>}
             <button
               type="button"
               onClick={() => setShowMobileDetail(true)}

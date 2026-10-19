@@ -235,6 +235,9 @@ export type OutstandingCustom = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Only ever filled in for management (owner / creative director) — comes
+  // from custom_chatter_names, which RLS hides from everyone else.
+  chatter_name?: string | null;
 };
 
 export type CustomUrgency = "on_track" | "due" | "overdue";

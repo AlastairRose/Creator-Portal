@@ -226,7 +226,20 @@ export async function getOutstandingCustoms(creatorId: string): Promise<Outstand
     .eq("creator_id", creatorId)
     .order("requested_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return data as OutstandingCustom[];
+  const customs = data as OutstandingCustom[];
+  if (customs.length === 0) return customs;
+
+  // RLS only returns these to management; for everyone else this comes back
+  // empty, so chatter_name simply stays unset.
+  const { data: names } = await supabase
+    .from("custom_chatter_names")
+    .select("custom_id, chatter_name")
+    .in(
+      "custom_id",
+      customs.map((c) => c.id)
+    );
+  const byId = new Map((names ?? []).map((n) => [n.custom_id as string, n.chatter_name as string]));
+  return customs.map((c) => ({ ...c, chatter_name: byId.get(c.id) ?? null }));
 }
 
 export async function getReports(creatorId: string): Promise<Report[]> {
