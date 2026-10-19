@@ -87,3 +87,55 @@ async function sendToProfiles(profileIds: string[], message: PushMessage): Promi
   }
   return { sent: delivered.length };
 }
+
+export type CreatorNotificationStatus = {
+  hasLogin: boolean;
+  devices: string[]; // e.g. ["iPhone", "Android phone"]
+};
+
+function deviceLabel(userAgent: string | null): string {
+  const ua = userAgent ?? "";
+  if (/iPhone|iPod/.test(ua)) return "iPhone";
+  if (/iPad/.test(ua)) return "iPad";
+  if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? "Android phone" : "Android tablet";
+  if (/Macintosh/.test(ua)) return "Mac";
+  if (/Windows/.test(ua)) return "Windows PC";
+  return "Device";
+}
+
+// Staff view: which creators have phone notifications on, and on what.
+// Returns null if this can't be checked (e.g. the table isn't set up yet).
+export async function getCreatorNotificationStatuses(): Promise<Map<string, CreatorNotificationStatus> | null> {
+  try {
+    const admin = createAdminClient();
+    const { data: profiles, error: profilesError } = await admin
+      .from("profiles")
+      .select("id, creator_id")
+      .eq("role", "creator")
+      .not("creator_id", "is", null);
+    if (profilesError) throw profilesError;
+
+    const profileToCreator = new Map((profiles ?? []).map((p) => [p.id as string, p.creator_id as string]));
+    const result = new Map<string, CreatorNotificationStatus>();
+    for (const creatorId of profileToCreator.values()) result.set(creatorId, { hasLogin: true, devices: [] });
+    if (profileToCreator.size === 0) return result;
+
+    const { data: subs, error: subsError } = await admin
+      .from("push_subscriptions")
+      .select("profile_id, user_agent")
+      .in("profile_id", [...profileToCreator.keys()]);
+    if (subsError) throw subsError;
+
+    for (const sub of subs ?? []) {
+      const creatorId = profileToCreator.get(sub.profile_id as string);
+      if (!creatorId) continue;
+      const status = result.get(creatorId)!;
+      const label = deviceLabel(sub.user_agent as string | null);
+      if (!status.devices.includes(label)) status.devices.push(label);
+    }
+    return result;
+  } catch (err) {
+    console.error("Couldn't load notification statuses:", err);
+    return null;
+  }
+}

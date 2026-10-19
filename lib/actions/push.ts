@@ -67,6 +67,20 @@ export async function isPushSubscriptionSaved(endpoint: string): Promise<boolean
   return !!data;
 }
 
+// Does the signed-in user have notifications on for ANY device? Used so a
+// creator who already set them up (e.g. via the iPhone home-screen icon)
+// isn't nagged when she opens the portal somewhere else, like a Safari tab.
+export async function hasAnyPushSubscription(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  if (!profile) return false;
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("push_subscriptions")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", profile.id);
+  return (count ?? 0) > 0;
+}
+
 export async function sendTestNotification(): Promise<{ error: string | null }> {
   const profile = await getCurrentProfile();
   if (!profile) return { error: "You're signed out." };

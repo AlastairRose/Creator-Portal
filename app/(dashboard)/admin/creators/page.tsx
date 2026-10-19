@@ -1,10 +1,11 @@
 import { requireStaff } from "@/lib/roles";
 import { getCreators } from "@/lib/queries";
 import NewCreatorForm from "@/components/admin/NewCreatorForm";
+import { getCreatorNotificationStatuses, type CreatorNotificationStatus } from "@/lib/push";
 
 export default async function CreatorsPage() {
   await requireStaff();
-  const creators = await getCreators();
+  const [creators, notificationStatuses] = await Promise.all([getCreators(), getCreatorNotificationStatuses()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -24,6 +25,7 @@ export default async function CreatorsPage() {
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">IG handle</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Phone notifications</th>
             </tr>
           </thead>
           <tbody>
@@ -42,11 +44,14 @@ export default async function CreatorsPage() {
                     </span>
                   )}
                 </td>
+                <td className="px-4 py-3">
+                  <NotificationCell status={notificationStatuses ? notificationStatuses.get(creator.id) ?? null : undefined} />
+                </td>
               </tr>
             ))}
             {creators.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-muted">
+                <td colSpan={4} className="px-4 py-6 text-center text-muted">
                   No creators yet.
                 </td>
               </tr>
@@ -55,5 +60,19 @@ export default async function CreatorsPage() {
         </table>
       </div>
     </div>
+  );
+}
+
+// undefined = couldn't check; null = creator has no portal login yet.
+function NotificationCell({ status }: { status: CreatorNotificationStatus | null | undefined }) {
+  if (status === undefined) return <span className="text-xs text-muted">—</span>;
+  if (status === null || !status.hasLogin) return <span className="text-xs text-muted">No portal login</span>;
+  if (status.devices.length === 0) {
+    return <span className="rounded-full bg-warning/15 px-2.5 py-1 text-xs text-warning">Off</span>;
+  }
+  return (
+    <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs text-success">
+      On · {status.devices.join(", ")}
+    </span>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import {
+  hasAnyPushSubscription,
   isPushSubscriptionSaved,
   removePushSubscription,
   savePushSubscription,
@@ -20,6 +21,7 @@ type Platform = "ios" | "android" | "desktop";
 type Status =
   | "checking"
   | "enabled"
+  | "enabled-elsewhere" // this device isn't set up, but another one is — no nagging
   | "ios-install" // iPhone in a normal Safari tab: needs Add to Home Screen first
   | "ios-other-browser" // iPhone in Chrome/Firefox/etc. tab
   | "in-app-browser" // Instagram / TikTok / Snapchat built-in browser
@@ -129,11 +131,20 @@ export default function NotificationSetup() {
 
   useEffect(() => {
     let cancelled = false;
-    evaluate().then((s) => {
+    evaluate()
+      .then(async (s): Promise<Status> => {
+        if (s === "enabled") return s;
+        try {
+          return (await hasAnyPushSubscription()) ? "enabled-elsewhere" : s;
+        } catch {
+          return s;
+        }
+      })
+      .then((s) => {
       if (cancelled) return;
       setPlatform(detectPlatform());
       setStatus(s);
-      if (s !== "enabled" && s !== "unsupported" && !readSnoozed()) setIsOpen(true);
+      if (s !== "enabled" && s !== "enabled-elsewhere" && s !== "unsupported" && !readSnoozed()) setIsOpen(true);
     });
     return () => {
       cancelled = true;
@@ -199,7 +210,7 @@ export default function NotificationSetup() {
     });
   }
 
-  if (status === "checking" || status === "unsupported") return null;
+  if (status === "checking" || status === "unsupported" || status === "enabled-elsewhere") return null;
 
   return (
     <>
