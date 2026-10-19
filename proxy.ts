@@ -52,6 +52,13 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Server-to-server calls from the Chatter Portal (video call requests).
+  // No session cookie - every route under here checks VIDEO_CALL_API_SECRET
+  // itself (lib/integration-auth.ts).
+  if (request.nextUrl.pathname.startsWith("/api/integrations/")) {
+    return response;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
