@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/roles";
 import { agreementBlanks, fillAgreement } from "@/lib/onboarding/agreement";
 import { encryptSecret } from "@/lib/onboarding/crypto";
 import { markOnboardingStep, type ModelInfoAnswers } from "@/lib/onboarding/state";
-import { syncModelInfoToChatterPortal } from "@/lib/onboarding/chatter-portal";
+import { saveMyModelInfoEverywhere, syncModelInfoToChatterPortal } from "@/lib/onboarding/chatter-portal";
 
 // Creator-side onboarding actions. Every one checks the signed-in user is a
 // creator and only ever acts on their own creator_id; the sensitive tables
@@ -213,10 +213,7 @@ export async function saveOnboardingDetails(input: DetailsInput): Promise<Result
 
 // ---------------------------------------------------------------- Step 3
 
-export async function saveModelInfo(answers: ModelInfoAnswers): Promise<Result & { synced?: boolean }> {
-  const me = await requireOnboardingCreator();
-  if (!me) return NOT_ALLOWED;
-
+function cleanAnswers(answers: ModelInfoAnswers): ModelInfoAnswers {
   const clean: ModelInfoAnswers = { fields: {}, lists: {} };
   for (const [key, value] of Object.entries(answers?.fields ?? {})) {
     if (typeof value === "string" && value.trim()) clean.fields[key.slice(0, 120)] = value.trim().slice(0, 2000);
@@ -226,9 +223,36 @@ export async function saveModelInfo(answers: ModelInfoAnswers): Promise<Result &
     clean.lists[key.slice(0, 60)] = items
       .filter((i) => i && typeof i.content === "string" && i.content.trim())
       .slice(0, 30)
-      .map((i) => ({ title: String(i.title ?? "").trim().slice(0, 120), content: i.content.trim().slice(0, 2000) }));
+      .map((i) => ({
+        title: String(i.title ?? "").trim().slice(0, 120),
+        content: i.content.trim().slice(0, 2000),
+        ...(typeof i.key === "string" ? { key: i.key.slice(0, 120) } : {}),
+      }));
   }
+  return clean;
+}
 
+// My Info: the creator updating her answers any time after onboarding.
+export async function saveMyModelInfo(answers: ModelInfoAnswers): Promise<Result> {
+  const me = await requireOnboardingCreator();
+  if (!me) return NOT_ALLOWED;
+  const { error } = await saveMyModelInfoEverywhere(me.creatorId, cleanAnswers(answers));
+  if (error) return { error };
+  try {
+    await markOnboardingStep(me.creatorId, "model_info_submitted_at");
+  } catch {
+    // progress tracking only; the answers themselves are saved
+  }
+  revalidatePath("/my-info");
+  revalidatePath("/", "layout");
+  return { error: null };
+}
+
+export async function saveModelInfo(answers: ModelInfoAnswers): Promise<Result & { synced?: boolean }> {
+  const me = await requireOnboardingCreator();
+  if (!me) return NOT_ALLOWED;
+
+  const clean = cleanAnswers(answers);
   const admin = createAdminClient();
   const { error } = await admin.from("creator_model_info").upsert({
     creator_id: me.creatorId,

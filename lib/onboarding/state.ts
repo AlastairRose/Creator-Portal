@@ -73,5 +73,7 @@ export async function markOnboardingStep(
 
 export type ModelInfoAnswers = {
   fields: Record<string, string>; // "<groupKey>__<fieldKey>" -> answer
-  lists: Record<string, { title: string; content: string }[]>; // listKey -> items
+  // listKey -> items. `key` is the item's Chatter Portal section key once it
+  // exists there, so edits update that item instead of adding a new one.
+  lists: Record<string, { title: string; content: string; key?: string }[]>;
 };
