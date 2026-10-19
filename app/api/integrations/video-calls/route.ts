@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rejectUnlessIntegration } from "@/lib/integration-auth";
 import { notifyCreator } from "@/lib/push";
-import { ASAP_EXPIRY_MINUTES, VIDEO_CALL_COLUMNS, type VideoCallRequest } from "@/lib/video-calls";
+import { REPLY_WINDOW_MINUTES, VIDEO_CALL_COLUMNS, type VideoCallRequest } from "@/lib/video-calls";
 
 export const dynamic = "force-dynamic";
 
@@ -84,16 +84,15 @@ export async function POST(request: NextRequest) {
   if (!timing) return NextResponse.json({ error: "Choose ASAP or a time." }, { status: 400 });
 
   let requestedFor: string | null = null;
-  let expiresAt: Date;
   if (timing === "scheduled") {
     const when = new Date(text(body.requestedFor, 40));
     if (Number.isNaN(when.getTime())) return NextResponse.json({ error: "Pick a date and time for the call." }, { status: 400 });
     if (when.getTime() < Date.now() - 60_000) return NextResponse.json({ error: "That time has already passed." }, { status: 400 });
     requestedFor = when.toISOString();
-    expiresAt = when; // no answer by the time of the call = it's not happening
-  } else {
-    expiresAt = new Date(Date.now() + ASAP_EXPIRY_MINUTES * 60_000);
   }
+  // Every request - ASAP or booked for later - needs an answer within the
+  // reply window so the chat team can get back to the fan quickly.
+  const expiresAt = new Date(Date.now() + REPLY_WINDOW_MINUTES * 60_000);
 
   const admin = createAdminClient();
   const { data: link, error: linkError } = await admin

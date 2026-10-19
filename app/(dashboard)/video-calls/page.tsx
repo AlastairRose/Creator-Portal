@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 const HISTORY_DAYS = 30;
 
+function serverNow(): number {
+  return Date.now();
+}
+
 function historyStartIso(): string {
   return new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 }
@@ -44,10 +48,10 @@ export default async function VideoCallsPage() {
         <p className="mt-1 text-sm text-muted">
           {isStaff
             ? "Video call requests sent from the Chatter Portal, and how each creator answered."
-            : "Video call requests from the chat team. Accept, suggest other times, or decline."}
+            : "Video call requests from the chat team. Reply within 20 minutes - accept, or let us know why not."}
         </p>
       </div>
-      <VideoCallList requests={requests} canRespond={!isStaff} showCreator={isStaff} />
+      <VideoCallList requests={requests} canRespond={!isStaff} showCreator={isStaff} renderedAt={serverNow()} />
     </div>
   );
 }
