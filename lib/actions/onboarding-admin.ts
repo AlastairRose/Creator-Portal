@@ -124,3 +124,50 @@ export async function resendModelInfoToChatterPortal(creatorId: string): Promise
   revalidatePath(`/admin/creators/${creatorId}/onboarding`);
   return { error: result.error };
 }
+
+// The owner countersigns a creator's signed agreement on behalf of the agency.
+export async function countersignAgreement(input: {
+  agreementId: string;
+  signerName: string;
+  signatureDataUrl: string;
+}): Promise<Result> {
+  const { profile, role } = await currentRole();
+  if (!profile || role !== "owner") return { error: "Only the owner can sign on behalf of the agency." };
+
+  const signerName = input.signerName.trim().slice(0, 200);
+  if (!signerName) return { error: "Please type your full name." };
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(input.signatureDataUrl ?? "");
+  if (!match) return { error: "Please draw your signature." };
+  const png = Buffer.from(match[1], "base64");
+  if (png.length < 200 || png.length > 1_000_000) return { error: "Please clear the signature and sign again." };
+
+  const admin = createAdminClient();
+  const { data: agreement, error: readError } = await admin
+    .from("creator_agreements")
+    .select("id, creator_id, countersigned_at")
+    .eq("id", input.agreementId)
+    .maybeSingle();
+  if (readError || !agreement) return { error: readError?.message ?? "Agreement not found." };
+  if (agreement.countersigned_at) return { error: "This agreement has already been countersigned." };
+
+  const path = `signatures/${agreement.creator_id}/agency-${crypto.randomUUID()}.png`;
+  const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, png, { contentType: "image/png" });
+  if (uploadError) return { error: `Couldn't save your signature: ${uploadError.message}` };
+
+  const { error } = await admin
+    .from("creator_agreements")
+    .update({
+      countersigned_at: new Date().toISOString(),
+      countersigned_by: profile.id,
+      countersigner_name: signerName,
+      countersignature_path: path,
+    })
+    .eq("id", agreement.id)
+    .is("countersigned_at", null);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/admin/creators/${agreement.creator_id}/onboarding`);
+  revalidatePath("/admin/creators");
+  revalidatePath("/", "layout");
+  return { error: null };
+}

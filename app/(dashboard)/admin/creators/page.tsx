@@ -8,13 +8,18 @@ import { computeOnboardingState, type OnboardingRow } from "@/lib/onboarding/sta
 
 export default async function CreatorsPage() {
   await requireStaff();
-  const [creators, notificationStatuses, onboardingRows] = await Promise.all([
+  const [creators, notificationStatuses, onboardingRows, awaitingCountersign] = await Promise.all([
     getCreators(),
     getCreatorNotificationStatuses(),
     createAdminClient()
       .from("creator_onboarding")
       .select("*")
       .then(({ data }) => new Map(((data ?? []) as OnboardingRow[]).map((r) => [r.creator_id, r]))),
+    createAdminClient()
+      .from("creator_agreements")
+      .select("creator_id")
+      .is("countersigned_at", null)
+      .then(({ data }) => new Set((data ?? []).map((r) => r.creator_id as string))),
   ]);
 
   return (
@@ -59,7 +64,11 @@ export default async function CreatorsPage() {
                   <NotificationCell status={notificationStatuses ? notificationStatuses.get(creator.id) ?? null : undefined} />
                 </td>
                 <td className="px-4 py-3">
-                  <OnboardingCell creatorId={creator.id} row={onboardingRows.get(creator.id) ?? null} />
+                  <OnboardingCell
+                    creatorId={creator.id}
+                    row={onboardingRows.get(creator.id) ?? null}
+                    awaitingCountersign={awaitingCountersign.has(creator.id)}
+                  />
                 </td>
               </tr>
             ))}
@@ -91,7 +100,15 @@ function NotificationCell({ status }: { status: CreatorNotificationStatus | null
   );
 }
 
-function OnboardingCell({ creatorId, row }: { creatorId: string; row: OnboardingRow | null }) {
+function OnboardingCell({
+  creatorId,
+  row,
+  awaitingCountersign,
+}: {
+  creatorId: string;
+  row: OnboardingRow | null;
+  awaitingCountersign: boolean;
+}) {
   const state = computeOnboardingState(row);
   const label = state.exempt
     ? "Not required"
@@ -106,8 +123,15 @@ function OnboardingCell({ creatorId, row }: { creatorId: string; row: Onboarding
       ? "bg-success/15 text-success"
       : "bg-warning/15 text-warning";
   return (
-    <Link href={`/admin/creators/${creatorId}/onboarding`} className={`rounded-full px-2.5 py-1 text-xs hover:opacity-80 ${tone}`}>
-      {label}
-    </Link>
+    <span className="flex flex-col items-start gap-1">
+      <Link href={`/admin/creators/${creatorId}/onboarding`} className={`rounded-full px-2.5 py-1 text-xs hover:opacity-80 ${tone}`}>
+        {label}
+      </Link>
+      {awaitingCountersign && (
+        <Link href={`/admin/creators/${creatorId}/onboarding`} className="text-xs font-medium text-accent hover:underline">
+          ✍️ Needs agency signature
+        </Link>
+      )}
+    </span>
   );
 }

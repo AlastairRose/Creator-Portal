@@ -5,6 +5,7 @@ import AppSidebar from "@/components/shared/AppSidebar";
 import NotificationSetup from "@/components/shared/NotificationSetup";
 import Link from "next/link";
 import { getOnboardingState } from "@/lib/onboarding/state";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
@@ -20,6 +21,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const isStaff = isStaffRole(profile.role);
   const isOwner = profile.role === "owner";
+
+  // Agreements creators have signed that still need the agency's signature.
+  let awaitingCountersign = 0;
+  if (isOwner) {
+    const { count } = await createAdminClient()
+      .from("creator_agreements")
+      .select("id", { count: "exact", head: true })
+      .is("countersigned_at", null);
+    awaitingCountersign = count ?? 0;
+  }
 
   const navItems = [
     { href: "/", label: "Dashboard" },
@@ -46,6 +57,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
       <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
         {/* Phone notifications are for creators (new customs, reels, content requests). */}
+        {awaitingCountersign > 0 && (
+          <Link
+            href="/admin/creators"
+            className="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-sm"
+          >
+            <span>
+              <span className="font-medium">
+                ✍️ {awaitingCountersign} creator agreement{awaitingCountersign === 1 ? "" : "s"} waiting for your signature
+              </span>
+            </span>
+            <span className="shrink-0 font-medium text-accent">Review</span>
+          </Link>
+        )}
         {onboardingIncomplete && (
           <Link
             href="/onboarding"

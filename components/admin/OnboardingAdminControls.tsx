@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import SignaturePad, { type SignaturePadHandle } from "@/components/onboarding/SignaturePad";
 import { useRouter } from "next/navigation";
 import {
+  countersignAgreement,
   getOnboardingFileUrl,
   resendModelInfoToChatterPortal,
   revealLoginPassword,
@@ -153,5 +155,52 @@ export function ResendModelInfoButton({ creatorId }: { creatorId: string }) {
       </button>
       {message && <span className="text-xs text-muted">{message}</span>}
     </span>
+  );
+}
+
+export function CountersignForm({ agreementId, defaultName }: { agreementId: string; defaultName: string }) {
+  const router = useRouter();
+  const pad = useRef<SignaturePadHandle>(null);
+  const [name, setName] = useState(defaultName);
+  const [hasInk, setHasInk] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function sign() {
+    setError(null);
+    const signatureDataUrl = pad.current?.toDataUrl();
+    if (!signatureDataUrl) {
+      setError("Please draw your signature.");
+      return;
+    }
+    startTransition(async () => {
+      const { error } = await countersignAgreement({ agreementId, signerName: name, signatureDataUrl });
+      if (error) setError(error);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-accent/40 bg-accent/5 p-3">
+      <p className="text-sm font-medium">Sign on behalf of LB Collective LTD</p>
+      <label className="flex flex-col gap-1.5 text-xs font-medium text-muted">
+        Your full name
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm outline-none focus:border-accent"
+        />
+      </label>
+      <SignaturePad ref={pad} onChange={setHasInk} />
+      {error && <p className="text-xs text-danger">{error}</p>}
+      <button
+        type="button"
+        onClick={sign}
+        disabled={isPending || !hasInk || !name.trim()}
+        className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+      >
+        {isPending ? "Signing…" : "Countersign agreement"}
+      </button>
+    </div>
   );
 }

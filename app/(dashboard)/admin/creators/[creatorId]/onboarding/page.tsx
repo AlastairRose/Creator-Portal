@@ -6,6 +6,7 @@ import { computeOnboardingState, ONBOARDING_STEPS, type ModelInfoAnswers, type O
 import { FIELD_GROUPS, LIST_SECTIONS, fieldSectionKey } from "@/lib/onboarding/model-info-template";
 import { formatDateUK } from "@/lib/format";
 import {
+  CountersignForm,
   PrivateFileLink,
   RequireOnboardingToggle,
   ResendModelInfoButton,
@@ -97,6 +98,20 @@ export default async function CreatorOnboardingPage({ params }: { params: Promis
                 {agreement.signer_ip ? ` · IP ${agreement.signer_ip}` : ""} · version {agreement.agreement_version}
               </p>
               <SignatureImage path={agreement.signature_path} />
+              {agreement.countersigned_at ? (
+                <div className="flex flex-col gap-2 border-t border-border pt-3">
+                  <p className="text-sm">
+                    Countersigned for LB Collective LTD by{" "}
+                    <span className="font-medium">{agreement.countersigner_name}</span> on{" "}
+                    {formatDateUK(agreement.countersigned_at)}
+                  </p>
+                  {agreement.countersignature_path && <SignatureImage path={agreement.countersignature_path} />}
+                </div>
+              ) : isOwner ? (
+                <CountersignForm agreementId={agreement.id} defaultName={profile.display_name} />
+              ) : (
+                <p className="text-sm text-warning">Waiting for the owner to countersign.</p>
+              )}
               <details className="rounded-md border border-border p-3">
                 <summary className="cursor-pointer text-sm font-medium">Read the signed copy</summary>
                 <h3 className="mt-3 text-sm font-semibold">{agreement.agreement_title}</h3>
