@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/roles";
 import { loadMyModelInfo } from "@/lib/onboarding/chatter-portal";
 import MyInfoForm from "@/components/onboarding/MyInfoForm";
+import { NotificationSetupInline } from "@/components/shared/NotificationSetup";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,10 @@ export default async function MyInfoPage() {
           Your answers are saved here and will be passed to the chat team once your account is connected on their side.
         </p>
       )}
+      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+        <h2 className="text-sm font-semibold">Phone notifications</h2>
+        <NotificationSetupInline allowThisDevice />
+      </section>
       {/* Remount after each save so new list items pick up their saved keys. */}
       <MyInfoForm key={createHash("sha1").update(JSON.stringify(answers)).digest("hex")} initial={answers} />
     </div>

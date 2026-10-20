@@ -96,6 +96,7 @@ async function getRegistration(): Promise<ServiceWorkerRegistration> {
 function useNotificationSetup(autoOpen: boolean) {
   const [platform, setPlatform] = useState<Platform>("desktop");
   const [status, setStatus] = useState<Status>("checking");
+  const [deviceStatus, setDeviceStatus] = useState<Status>("checking");
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testSent, setTestSent] = useState(false);
@@ -141,6 +142,7 @@ function useNotificationSetup(autoOpen: boolean) {
     let cancelled = false;
     evaluate()
       .then(async (s): Promise<Status> => {
+        if (!cancelled) setDeviceStatus(s);
         if (s === "enabled") return s;
         // A link with ?notifications=setup always offers setup on this device,
         // e.g. when a second phone logs in to an account that already has them on.
@@ -200,6 +202,7 @@ function useNotificationSetup(autoOpen: boolean) {
           return;
         }
         setStatus("enabled");
+        setDeviceStatus("enabled");
         const test = await sendTestNotification();
         setTestSent(!test.error);
       } catch (err) {
@@ -221,18 +224,29 @@ function useNotificationSetup(autoOpen: boolean) {
         // best effort
       }
       setStatus("ready");
+      setDeviceStatus("ready");
       setTestSent(false);
     });
   }
 
-  return { platform, status, isOpen, setIsOpen, error, testSent, isPending, close, turnOn, turnOff };
+  return { platform, status, deviceStatus, isOpen, setIsOpen, error, testSent, isPending, close, turnOn, turnOff };
 }
 
 // Inline version used as a step in creator onboarding: always shows the
 // device-specific guide in place (no pop-up, no banner).
-export function NotificationSetupInline({ onEnabledChange }: { onEnabledChange?: (enabled: boolean) => void }) {
-  const { platform, status, error, testSent, isPending, turnOn, turnOff } = useNotificationSetup(false);
-  const enabled = status === "enabled" || status === "enabled-elsewhere";
+export function NotificationSetupInline({
+  onEnabledChange,
+  allowThisDevice = false,
+}: {
+  onEnabledChange?: (enabled: boolean) => void;
+  /** Offer setup on this device even when another device already has notifications on. */
+  allowThisDevice?: boolean;
+}) {
+  const { platform, status: rawStatus, deviceStatus, error, testSent, isPending, turnOn, turnOff } =
+    useNotificationSetup(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const status = showGuide && rawStatus === "enabled-elsewhere" ? deviceStatus : rawStatus;
+  const enabled = rawStatus === "enabled" || rawStatus === "enabled-elsewhere";
 
   useEffect(() => {
     if (status !== "checking") onEnabledChange?.(enabled);
@@ -248,7 +262,20 @@ export function NotificationSetupInline({ onEnabledChange }: { onEnabledChange?:
     );
   }
   if (status === "enabled-elsewhere") {
-    return <p className="text-sm text-success">✓ Notifications are already on for your account on another device.</p>;
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-success">✓ Notifications are already on for your account on another device.</p>
+        {allowThisDevice && (
+          <button
+            type="button"
+            onClick={() => setShowGuide(true)}
+            className="self-start rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-raised"
+          >
+            Turn them on for this phone too
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (
