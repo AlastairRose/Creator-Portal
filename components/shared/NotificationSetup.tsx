@@ -78,6 +78,14 @@ function writeSnooze() {
   }
 }
 
+function forcedSetup(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get("notifications") === "setup";
+  } catch {
+    return false;
+  }
+}
+
 async function getRegistration(): Promise<ServiceWorkerRegistration> {
   const existing = await navigator.serviceWorker.getRegistration("/");
   if (existing) return existing;
@@ -134,6 +142,9 @@ function useNotificationSetup(autoOpen: boolean) {
     evaluate()
       .then(async (s): Promise<Status> => {
         if (s === "enabled") return s;
+        // A link with ?notifications=setup always offers setup on this device,
+        // e.g. when a second phone logs in to an account that already has them on.
+        if (forcedSetup()) return s;
         try {
           return (await hasAnyPushSubscription()) ? "enabled-elsewhere" : s;
         } catch {
@@ -144,7 +155,9 @@ function useNotificationSetup(autoOpen: boolean) {
       if (cancelled) return;
       setPlatform(detectPlatform());
       setStatus(s);
-      if (autoOpen && s !== "enabled" && s !== "enabled-elsewhere" && s !== "unsupported" && !readSnoozed()) {
+      if (autoOpen && forcedSetup() && s !== "enabled" && s !== "unsupported") {
+        setIsOpen(true);
+      } else if (autoOpen && s !== "enabled" && s !== "enabled-elsewhere" && s !== "unsupported" && !readSnoozed()) {
         setIsOpen(true);
       }
     });
