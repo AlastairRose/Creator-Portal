@@ -26,6 +26,9 @@ export default function OutstandingCustomIntakeForm({ creatorId }: { creatorId: 
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
+      <p className="rounded-md bg-surface-raised px-3 py-2 text-xs text-muted">
+        For custom videos only. Video calls are requested from the Chatter Portal (Customs &amp; Calls → Video call).
+      </p>
       <Field label="Your name (chatter)">
         <input name="chatter_name" required maxLength={100} autoComplete="name" className={fieldClass} />
         <p className="text-xs text-muted">Only management can see this. It isn&apos;t shown to the creator.</p>
@@ -38,11 +41,8 @@ export default function OutstandingCustomIntakeForm({ creatorId }: { creatorId: 
         <Field label="Sub name">
           <input name="sub_name" className={fieldClass} />
         </Field>
-        <Field label="Length of video or call">
+        <Field label="Length of video">
           <input name="length_of_video_or_call" placeholder="e.g. 5 mins" className={fieldClass} />
-        </Field>
-        <Field label="Custom or call">
-          <input name="custom_or_call" placeholder="e.g. Custom" className={fieldClass} />
         </Field>
         <Field label="Outfit">
           <input name="outfit" className={fieldClass} />
