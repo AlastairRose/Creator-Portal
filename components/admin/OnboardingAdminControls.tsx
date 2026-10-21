@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import SignaturePad, { type SignaturePadHandle } from "@/components/onboarding/SignaturePad";
 import { useRouter } from "next/navigation";
+import { confirmMetaAccess, resetMetaAccess } from "@/lib/actions/meta-access";
 import {
   countersignAgreement,
   getOnboardingFileUrl,
@@ -201,6 +202,47 @@ export function CountersignForm({ agreementId, defaultName }: { agreementId: str
       >
         {isPending ? "Signing…" : "Countersign agreement"}
       </button>
+    </div>
+  );
+}
+
+export function MetaAccessButtons({ creatorId, status }: { creatorId: string; status: string | null }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  function run(action: (id: string) => Promise<{ error: string | null }>) {
+    setError(null);
+    startTransition(async () => {
+      const { error } = await action(creatorId);
+      if (error) setError(error);
+      else router.refresh();
+    });
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap gap-2">
+        {status !== "confirmed" && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => run(confirmMetaAccess)}
+            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Mark access received
+          </button>
+        )}
+        {status && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => run(resetMetaAccess)}
+            className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-surface-raised disabled:opacity-50"
+          >
+            {status === "confirmed" ? "Ask her to do it again" : "Not received, ask her to try again"}
+          </button>
+        )}
+      </div>
+      {error && <span className="text-xs text-danger">{error}</span>}
     </div>
   );
 }

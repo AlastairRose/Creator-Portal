@@ -28,6 +28,7 @@ export async function saveOnboardingSettings(input: {
   agreementTitle: string;
   agreementBody: string;
   welcomeVideoUrl: string;
+  metaBusinessId: string;
 }): Promise<Result> {
   const { role } = await currentRole();
   if (role !== "owner") return { error: "Only the owner can change onboarding settings." };
@@ -37,6 +38,11 @@ export async function saveOnboardingSettings(input: {
   const videoUrl = input.welcomeVideoUrl.trim();
   if (videoUrl && !toEmbedUrl(videoUrl)) {
     return { error: "That video link isn't a YouTube, Vimeo or Loom link the portal can play." };
+  }
+
+  const metaBusinessId = input.metaBusinessId.replace(/\s/g, "");
+  if (metaBusinessId && !/^\d{10,20}$/.test(metaBusinessId)) {
+    return { error: "The business portfolio ID should be the long number from Business settings → Business info." };
   }
 
   const admin = createAdminClient();
@@ -57,12 +63,14 @@ export async function saveOnboardingSettings(input: {
       agreement_body: body,
       agreement_version: changed ? current.agreement_version + 1 : current.agreement_version,
       welcome_video_url: videoUrl || null,
+      meta_business_id: metaBusinessId || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);
   if (error) return { error: error.message };
   revalidatePath("/admin/onboarding");
   revalidatePath("/onboarding");
+  revalidatePath("/meta-access");
   return { error: null };
 }
 

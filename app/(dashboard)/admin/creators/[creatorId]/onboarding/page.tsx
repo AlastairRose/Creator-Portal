@@ -7,6 +7,7 @@ import { FIELD_GROUPS, LIST_SECTIONS, fieldSectionKey } from "@/lib/onboarding/m
 import { formatDateUK } from "@/lib/format";
 import {
   CountersignForm,
+  MetaAccessButtons,
   PrivateFileLink,
   RequireOnboardingToggle,
   ResendModelInfoButton,
@@ -28,6 +29,7 @@ export default async function CreatorOnboardingPage({ params }: { params: Promis
   const { data: creator } = await admin.from("creators").select("id, name").eq("id", creatorId).maybeSingle();
   if (!creator) notFound();
 
+  const { data: metaAccess } = await admin.from("creator_meta_access").select("*").eq("creator_id", creatorId).maybeSingle();
   const [{ data: row }, { data: modelInfo }, agreementRes, detailsRes, docsRes, loginsRes] = await Promise.all([
     admin.from("creator_onboarding").select("*").eq("creator_id", creatorId).maybeSingle(),
     admin.from("creator_model_info").select("*").eq("creator_id", creatorId).maybeSingle(),
@@ -176,6 +178,30 @@ export default async function CreatorOnboardingPage({ params }: { params: Promis
           <p className="text-xs text-muted">Only you can see these. Each time a password is revealed, it&apos;s logged.</p>
         </Card>
       )}
+
+      <Card title="Instagram / Facebook access">
+        {!metaAccess ? (
+          <p className="text-sm text-muted">Not done yet. She can do it from Instagram Access in her menu.</p>
+        ) : metaAccess.status === "confirmed" ? (
+          <p className="text-sm text-success">
+            ✓ Received{metaAccess.instagram_handle ? ` for @${metaAccess.instagram_handle}` : ""} on {formatDateUK(metaAccess.confirmed_at)}.
+          </p>
+        ) : metaAccess.status === "help" ? (
+          <div className="flex flex-col gap-1 text-sm">
+            <p className="text-warning">
+              Needs help{metaAccess.instagram_handle ? ` (@${metaAccess.instagram_handle})` : ""}, asked {formatDateUK(metaAccess.submitted_at)}.
+            </p>
+            {metaAccess.help_message && <p className="whitespace-pre-wrap text-muted">{metaAccess.help_message}</p>}
+          </div>
+        ) : (
+          <p className="text-sm">
+            She says she gave access{metaAccess.instagram_handle ? ` to @${metaAccess.instagram_handle}` : ""} on{" "}
+            {formatDateUK(metaAccess.submitted_at)}. Check Business settings → Accounts in Meta Business Suite, then mark it
+            received.
+          </p>
+        )}
+        {isManagement && <MetaAccessButtons creatorId={creatorId} status={(metaAccess?.status as string | null) ?? null} />}
+      </Card>
 
       <Card title="Model info">
         {answers ? (

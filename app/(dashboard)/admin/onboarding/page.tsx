@@ -8,7 +8,7 @@ export default async function OnboardingSettingsPage() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("onboarding_settings")
-    .select("agreement_title, agreement_body, agreement_version, welcome_video_url")
+    .select("agreement_title, agreement_body, agreement_version, welcome_video_url, meta_business_id")
     .eq("id", 1)
     .maybeSingle();
 
@@ -33,6 +33,7 @@ export default async function OnboardingSettingsPage() {
           agreementBody: data?.agreement_body ?? "",
           agreementVersion: data?.agreement_version ?? 1,
           welcomeVideoUrl: data?.welcome_video_url ?? "",
+          metaBusinessId: data?.meta_business_id ?? "",
         }}
       />
     </div>

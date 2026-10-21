@@ -11,11 +11,12 @@ const inputClass =
 export default function OnboardingSettingsForm({
   initial,
 }: {
-  initial: { agreementTitle: string; agreementBody: string; agreementVersion: number; welcomeVideoUrl: string };
+  initial: { agreementTitle: string; agreementBody: string; agreementVersion: number; welcomeVideoUrl: string; metaBusinessId: string };
 }) {
   const [title, setTitle] = useState(initial.agreementTitle);
   const [body, setBody] = useState(initial.agreementBody);
   const [videoUrl, setVideoUrl] = useState(initial.welcomeVideoUrl);
+  const [metaBusinessId, setMetaBusinessId] = useState(initial.metaBusinessId);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const blanks = agreementBlanks(body);
@@ -24,7 +25,7 @@ export default function OnboardingSettingsForm({
   function save() {
     setMessage(null);
     startTransition(async () => {
-      const { error } = await saveOnboardingSettings({ agreementTitle: title, agreementBody: body, welcomeVideoUrl: videoUrl });
+      const { error } = await saveOnboardingSettings({ agreementTitle: title, agreementBody: body, welcomeVideoUrl: videoUrl, metaBusinessId });
       setMessage(error ? { ok: false, text: error } : { ok: true, text: "Saved." });
     });
   }
@@ -65,6 +66,23 @@ export default function OnboardingSettingsForm({
             <iframe src={embed} title="Welcome video preview" className="h-full w-full" allowFullScreen />
           </div>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+        <h2 className="text-sm font-semibold">Instagram / Facebook access</h2>
+        <p className="text-xs text-muted">
+          Your agency&apos;s Meta business portfolio ID, from business.facebook.com/settings → Business info. Creators
+          paste it when they give you partner access from Instagram Access in their menu. Until it&apos;s set, that page
+          tells them it isn&apos;t ready yet.
+        </p>
+        <input
+          id="meta-business-id"
+          value={metaBusinessId}
+          onChange={(e) => setMetaBusinessId(e.target.value)}
+          inputMode="numeric"
+          placeholder="e.g. 1234567890123456"
+          className={`${inputClass} font-mono`}
+        />
       </section>
 
       {message && <p className={`text-sm ${message.ok ? "text-success" : "text-danger"}`}>{message.text}</p>}
