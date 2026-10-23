@@ -4,13 +4,15 @@ export default function QuickSummaryCards({
   reelsToFilmCount,
   outstandingCustomsCount,
   highlyRequestedCount,
+  videoCallsToAnswerCount,
 }: {
   reelsToFilmCount: number;
   outstandingCustomsCount: number;
   highlyRequestedCount: number;
+  videoCallsToAnswerCount?: number;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${videoCallsToAnswerCount === undefined ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
       <SummaryCard href="/reels-to-film" label="Reels to Film This Week" count={reelsToFilmCount} />
       <SummaryCard href="/outstanding-customs" label="Outstanding Customs" count={outstandingCustomsCount} />
       <SummaryCard
@@ -18,15 +20,18 @@ export default function QuickSummaryCards({
         label="Highly Requested OnlyFans Content"
         count={highlyRequestedCount}
       />
+      {videoCallsToAnswerCount !== undefined && (
+        <SummaryCard href="/video-calls" label="Video Calls to Answer" count={videoCallsToAnswerCount} highlight={videoCallsToAnswerCount > 0} />
+      )}
     </div>
   );
 }
 
-function SummaryCard({ href, label, count }: { href: string; label: string; count: number }) {
+function SummaryCard({ href, label, count, highlight = false }: { href: string; label: string; count: number; highlight?: boolean }) {
   return (
     <Link
       href={href}
-      className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-5 transition-colors hover:border-accent hover:bg-surface-raised"
+      className={`flex flex-col gap-2 rounded-lg border p-5 transition-colors hover:border-accent hover:bg-surface-raised ${highlight ? "border-orange/50 bg-orange/10" : "border-border bg-surface"}`}
     >
       <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
       <span className="text-3xl font-semibold tracking-tight">{count}</span>
