@@ -30,32 +30,38 @@ export async function checkDriveUploads(admin: SupabaseClient) {
   if (folders.length === 0) return { folders: 0, newFiles: 0, emailed: false };
 
   const folderIds = folders.map((f) => f.folderId);
-  const [{ data: watchedRows, error: watchedError }, { data: seenRows, error: seenError }] = await Promise.all([
-    admin.from("drive_watched_folders").select("folder_id").in("folder_id", folderIds),
-    admin.from("drive_seen_files").select("file_id").in("folder_id", folderIds),
-  ]);
+  const { data: watchedRows, error: watchedError } = await admin
+    .from("drive_watched_folders")
+    .select("folder_id")
+    .in("folder_id", folderIds);
   if (watchedError) throw new Error(watchedError.message);
-  if (seenError) throw new Error(seenError.message);
   const alreadyWatched = new Set((watchedRows ?? []).map((r) => r.folder_id as string));
-  const seen = new Set((seenRows ?? []).map((r) => r.file_id as string));
+
+  // List every folder first, then look up which files have been seen before
+  // by file ID. (Looking them up by folder missed files first seen in a
+  // weekly folder that has since aged out of the watch list, but that are
+  // still inside the creator's general folder, so they were re-reported on
+  // every run.)
+  const listings: { folder: WatchedFolder; files: DriveFile[] }[] = [];
+  for (const folder of folders) {
+    try {
+      const files = await listFilesInFolderTree(folder.folderId, folder.maxDepth);
+      if (files === null) continue; // folder deleted or not shared with the connected account
+      listings.push({ folder, files });
+    } catch (err) {
+      console.error(`Couldn't check Drive folder for ${folder.creatorName} (${folder.label}):`, err);
+    }
+  }
+  const seen = await getSeenFileIds(admin, [...new Set(listings.flatMap((l) => l.files.map((f) => f.id)))]);
 
   const updates: FolderUpdate[] = [];
   const toRecord: { file_id: string; folder_id: string }[] = [];
   const newlyWatched: string[] = [];
 
-  for (const folder of folders) {
-    let files: DriveFile[] | null;
-    try {
-      files = await listFilesInFolderTree(folder.folderId, folder.maxDepth);
-    } catch (err) {
-      console.error(`Couldn't check Drive folder for ${folder.creatorName} (${folder.label}):`, err);
-      continue;
-    }
-    if (files === null) continue; // folder deleted or not shared with the connected account
-
+  for (const { folder, files } of listings) {
     const unseen = files.filter((f) => !seen.has(f.id));
     unseen.forEach((f) => {
-      seen.add(f.id); // the same folder can be linked twice; record each file once
+      seen.add(f.id); // the same file can show up under two folders; record and report it once
       toRecord.push({ file_id: f.id, folder_id: folder.folderId });
     });
 
@@ -96,6 +102,16 @@ export async function checkDriveUploads(admin: SupabaseClient) {
     newFiles: updates.reduce((n, u) => n + u.newFiles.length, 0),
     emailed,
   };
+}
+
+async function getSeenFileIds(admin: SupabaseClient, fileIds: string[]): Promise<Set<string>> {
+  const seen = new Set<string>();
+  for (let i = 0; i < fileIds.length; i += 200) {
+    const { data, error } = await admin.from("drive_seen_files").select("file_id").in("file_id", fileIds.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    (data ?? []).forEach((r) => seen.add(r.file_id as string));
+  }
+  return seen;
 }
 
 async function getWatchedFolders(admin: SupabaseClient): Promise<WatchedFolder[]> {
