@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/roles";
+import { baseIdeaName, likePrefix, nextVersionName } from "@/lib/idea-versions";
 import { createOnlyfansRequest, type OnlyfansRequestFields, type OnlyfansSextingItemFields } from "@/lib/actions/onlyfans";
 
 export type OfcdIdeaFields = OnlyfansRequestFields & { title: string };
@@ -112,4 +113,47 @@ export async function pushOfcdIdeaToCreator(creatorId: string, fields: OnlyfansR
 // copies its current fields into a new OFCD idea. The request is untouched.
 export async function saveOnlyfansRequestToOfcd(title: string, fields: OnlyfansRequestFields) {
   await createOfcdIdea({ ...fields, title });
+}
+
+// Copies an OFCD idea, checklist included, as a new version ("(v2)").
+export async function duplicateOfcdIdea(id: string): Promise<{ error: string | null }> {
+  try {
+    const profile = await requireStaff();
+    const supabase = await createClient();
+    const { data: original, error: readError } = await supabase
+      .from("ofcd_ideas")
+      .select("title, content_type, description, length, sexting_drive_link, sexting_storyline")
+      .eq("id", id)
+      .single();
+    if (readError || !original) return { error: readError?.message ?? "Idea not found." };
+    const { data: items, error: itemsReadError } = await supabase
+      .from("ofcd_idea_sexting_items")
+      .select("content_label, description, length, creator_required, sort_order")
+      .eq("ofcd_idea_id", id)
+      .order("sort_order");
+    if (itemsReadError) return { error: itemsReadError.message };
+
+    const { data: similar } = await supabase
+      .from("ofcd_ideas")
+      .select("title")
+      .ilike("title", likePrefix(baseIdeaName(original.title as string)));
+    const title = nextVersionName(original.title as string, (similar ?? []).map((r) => r.title as string));
+
+    const { data: copy, error } = await supabase
+      .from("ofcd_ideas")
+      .insert({ ...original, title, added_by: profile.id })
+      .select("id")
+      .single();
+    if (error || !copy) return { error: error?.message ?? "Couldn't duplicate that idea." };
+    if (items && items.length > 0) {
+      const { error: itemsError } = await supabase
+        .from("ofcd_idea_sexting_items")
+        .insert(items.map((item) => ({ ...item, ofcd_idea_id: copy.id })));
+      if (itemsError) return { error: itemsError.message };
+    }
+    revalidatePath("/ofcd");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Couldn't duplicate that idea." };
+  }
 }

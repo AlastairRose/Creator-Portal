@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff, requireCreator } from "@/lib/roles";
 import { ensureDraftWeek, createDraftReelLenient, type ReelDraftFields } from "@/lib/actions/creative-direction";
 import { getReelsForWeek } from "@/lib/queries";
+import { baseIdeaName, likePrefix, nextVersionName } from "@/lib/idea-versions";
 
 // Same shape as a reel's fields, plus which creators this idea might suit.
 // Only `name` is ever required, same as R&D.
@@ -85,4 +86,26 @@ export async function submitOwnIdea(fields: ReelDraftFields) {
   });
   if (error) throw new Error(error.message);
   revalidatePath("/planner");
+}
+
+// Copies an idea as a new version ("Beach walk" -> "(v2)"), so variations can
+// be worked on without changing the original.
+export async function duplicateIdea(id: string): Promise<{ error: string | null }> {
+  try {
+    const profile = await requireStaff();
+    const supabase = await createClient();
+    const { data: original, error: readError } = await supabase.from("ideas").select("name, idea, inspo_link, required_shots, hook, outfit, location, filming_style, editing_notes, posting_notes, vertical, suitable_creator_ids").eq("id", id).single();
+    if (readError || !original) return { error: readError?.message ?? "Idea not found." };
+    const { data: similar } = await supabase
+      .from("ideas")
+      .select("name")
+      .ilike("name", likePrefix(baseIdeaName(original.name as string)));
+    const name = nextVersionName(original.name as string, (similar ?? []).map((r) => r.name as string));
+    const { error } = await supabase.from("ideas").insert({ ...original, name, added_by: profile.id });
+    if (error) return { error: error.message };
+    revalidatePath("/creative-direction/ideas");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Couldn't duplicate that idea." };
+  }
 }

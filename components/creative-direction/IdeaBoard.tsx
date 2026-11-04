@@ -8,6 +8,7 @@ import {
   pushIdeaToWeek,
   updateIdea,
   type IdeaFields,
+  duplicateIdea,
 } from "@/lib/actions/ideas";
 import { getNextWeekStart } from "@/lib/weeks";
 import WeekPicker from "@/components/shared/WeekPicker";
@@ -211,6 +212,14 @@ function IdeaRow({
     });
   }
 
+  function duplicate() {
+    startTransition(async () => {
+      const { error } = await duplicateIdea(idea.id);
+      if (error) window.alert(`Couldn't duplicate this idea: ${error}`);
+      else router.refresh();
+    });
+  }
+
   function remove() {
     startTransition(async () => {
       await deleteIdea(idea.id);
@@ -263,6 +272,18 @@ function IdeaRow({
               className="text-muted hover:text-foreground"
             >
               Edit
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={(e) => {
+                e.stopPropagation();
+                duplicate();
+              }}
+              className="text-muted hover:text-foreground disabled:opacity-50"
+              title="Make a copy to create another version"
+            >
+              Duplicate
             </button>
             <button
               type="button"

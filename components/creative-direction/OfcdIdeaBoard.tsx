@@ -8,6 +8,7 @@ import {
   pushOfcdIdeaToCreator,
   updateOfcdIdea,
   type OfcdIdeaFields,
+  duplicateOfcdIdea,
 } from "@/lib/actions/ofcd-ideas";
 import { ONLYFANS_CONTENT_TYPE_LABELS } from "@/lib/types";
 import type { Creator, OfcdIdeaWithItems } from "@/lib/types";
@@ -274,6 +275,14 @@ function IdeaRow({
   const [isExpanded, setIsExpanded] = useState(false);
   const isSexting = idea.content_type === "sexting";
 
+  function duplicate() {
+    startTransition(async () => {
+      const { error } = await duplicateOfcdIdea(idea.id);
+      if (error) window.alert(`Couldn't duplicate this idea: ${error}`);
+      else router.refresh();
+    });
+  }
+
   function remove() {
     startTransition(async () => {
       await deleteOfcdIdea(idea.id);
@@ -296,6 +305,15 @@ function IdeaRow({
             </button>
             <button type="button" onClick={onEdit} className="text-muted hover:text-foreground">
               Edit
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={duplicate}
+              className="text-muted hover:text-foreground disabled:opacity-50"
+              title="Make a copy to create another version"
+            >
+              Duplicate
             </button>
             <button
               type="button"
