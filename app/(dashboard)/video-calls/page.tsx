@@ -2,6 +2,7 @@ import { getCurrentProfile, isStaffRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { VIDEO_CALL_COLUMNS, type VideoCallRequest } from "@/lib/video-calls";
 import VideoCallList from "@/components/video-calls/VideoCallList";
+import DiscordTestButton from "@/components/video-calls/DiscordTestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ export default async function VideoCallsPage() {
             : "Video call requests from the chat team. Reply within 20 minutes - accept, or let us know why not."}
         </p>
       </div>
+      {profile.role === "owner" && <DiscordTestButton />}
       <VideoCallList requests={requests} canRespond={!isStaff} showCreator={isStaff} renderedAt={serverNow()} />
     </div>
   );

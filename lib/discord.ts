@@ -83,3 +83,26 @@ export async function announceVideoCallResponse(requestId: string): Promise<void
     console.error("Couldn't announce video call response on Discord:", err);
   }
 }
+
+// Owner-only check that the webhook works. Returns a readable result.
+export async function sendDiscordTest(): Promise<{ error: string | null }> {
+  const url = process.env.DISCORD_VIDEO_CALL_WEBHOOK_URL;
+  if (!url) return { error: "The Discord webhook isn't set up in Vercel yet (DISCORD_VIDEO_CALL_WEBHOOK_URL)." };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "Video Calls",
+        content:
+          "@everyone 🧪 **Test message** from the Creator Portal. When a creator answers a video call request, it will be posted here like this. No action needed.",
+        allowed_mentions: { parse: ["everyone"] },
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return { error: `Discord said ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` };
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Couldn't reach Discord." };
+  }
+}
