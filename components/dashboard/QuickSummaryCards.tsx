@@ -5,11 +5,13 @@ export default function QuickSummaryCards({
   outstandingCustomsCount,
   highlyRequestedCount,
   videoCallsToAnswerCount,
+  videoCallsHref = "/video-calls",
 }: {
   reelsToFilmCount: number;
   outstandingCustomsCount: number;
   highlyRequestedCount: number;
   videoCallsToAnswerCount?: number;
+  videoCallsHref?: string;
 }) {
   return (
     <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${videoCallsToAnswerCount === undefined ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
@@ -21,7 +23,7 @@ export default function QuickSummaryCards({
         count={highlyRequestedCount}
       />
       {videoCallsToAnswerCount !== undefined && (
-        <SummaryCard href="/video-calls" label="Video Calls to Answer" count={videoCallsToAnswerCount} highlight={videoCallsToAnswerCount > 0} />
+        <SummaryCard href={videoCallsHref} label="Video Calls to Answer" count={videoCallsToAnswerCount} highlight={videoCallsToAnswerCount > 0} />
       )}
     </div>
   );

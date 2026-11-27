@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { VIDEO_CALL_COLUMNS, type VideoCallRequest } from "@/lib/video-calls";
@@ -24,6 +25,9 @@ export default async function VideoCallsPage() {
   if (!isStaff && !profile.creator_id) {
     return <p className="text-sm text-muted">No creator profile is linked to your account yet.</p>;
   }
+  // Creators answer video calls in their Content Planner now. Notifications
+  // and old links still point here, so send them on.
+  if (!isStaff) redirect(`/planner/${profile.creator_id}#video-calls`);
 
   // RLS limits creators to their own requests; staff see everyone's.
   const supabase = await createClient();

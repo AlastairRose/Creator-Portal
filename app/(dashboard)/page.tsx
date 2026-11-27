@@ -111,13 +111,17 @@ export default async function DashboardPage() {
         <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
         <p className="mt-1 text-sm text-muted">What needs your attention this week.</p>
       </div>
-      <QuickSummaryCards {...counts} videoCallsToAnswerCount={videoCallsToAnswer} />
+      <QuickSummaryCards
+        {...counts}
+        videoCallsToAnswerCount={videoCallsToAnswer}
+        videoCallsHref={`/planner/${profile.creator_id}#video-calls`}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="flex min-w-0 flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-base font-semibold">Video Calls</h2>
-            <Link href="/video-calls" className="text-xs font-medium text-accent hover:underline">
+            <Link href={`/planner/${profile.creator_id}#video-calls`} className="text-xs font-medium text-accent hover:underline">
               See all
             </Link>
           </div>

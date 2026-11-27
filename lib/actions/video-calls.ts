@@ -87,5 +87,7 @@ export async function respondToVideoCall(id: string, response: VideoCallResponse
   await announceVideoCallResponse(id);
 
   revalidatePath("/video-calls");
+  revalidatePath(`/planner/${profile.creator_id}`);
+  revalidatePath("/");
   return { error: null };
 }

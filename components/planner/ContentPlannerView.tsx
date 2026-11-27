@@ -14,6 +14,8 @@ import ReelsToFilmSection from "./ReelsToFilmSection";
 import GeneralReelsFolderButton from "./GeneralReelsFolderButton";
 import OnlyfansContentSection from "./OnlyfansContentSection";
 import OutstandingCustomsSection from "./OutstandingCustomsSection";
+import VideoCallsSection from "./VideoCallsSection";
+import type { VideoCallRequest } from "@/lib/video-calls";
 
 export default function ContentPlannerView({
   creator,
@@ -24,6 +26,9 @@ export default function ContentPlannerView({
   outstandingCustoms,
   driveLinks,
   isStaff,
+  isOwner,
+  videoCalls,
+  renderedAt,
 }: {
   creator: Creator;
   weekStartDate: string;
@@ -33,6 +38,9 @@ export default function ContentPlannerView({
   outstandingCustoms: OutstandingCustom[];
   driveLinks: CreatorDriveLinks | null;
   isStaff: boolean;
+  isOwner: boolean;
+  videoCalls: VideoCallRequest[];
+  renderedAt: number;
 }) {
   const router = useRouter();
 
@@ -46,7 +54,7 @@ export default function ContentPlannerView({
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">{creator.name}&apos;s Content Planner</h1>
-        <p className="mt-1 text-sm text-muted">Reels to film, uploads, and this week&apos;s status.</p>
+        <p className="mt-1 text-sm text-muted">Reels to film, uploads, customs, video calls and this week&apos;s status.</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-surface p-4">
@@ -84,6 +92,8 @@ export default function ContentPlannerView({
         driveLink={driveLinks?.customs_drive_link ?? null}
         isStaff={isStaff}
       />
+
+      <VideoCallsSection requests={videoCalls} isStaff={isStaff} isOwner={isOwner} renderedAt={renderedAt} />
     </div>
   );
 }

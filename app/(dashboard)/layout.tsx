@@ -38,13 +38,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const navItems = [
     { href: "/", label: "Dashboard" },
     { href: "/planner", label: "Content Planner" },
-    { href: "/video-calls", label: "Video Calls" },
     ...(isStaff ? [{ href: "/creative-direction", label: "Creative Direction" }] : []),
     ...(isStaff ? [{ href: "/ofcd", label: "OFCD" }] : []),
     ...(isStaff ? [{ href: "/sops", label: "SOPs" }] : []),
     { href: "/reports", label: "Reports" },
     ...(isStaff ? [{ href: "/admin/creators", label: "Creators" }] : []),
-    ...(isStaff ? [{ href: "/admin/intake-links", label: "Custom Request Links" }] : []),
     ...(isOwner ? [{ href: "/admin/users", label: "Users" }] : []),
     ...(isOwner ? [{ href: "/admin/google-drive", label: "Google Drive" }] : []),
     ...(isOwner ? [{ href: "/admin/onboarding", label: "Onboarding" }] : []),
