@@ -66,7 +66,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .update(update)
     .eq("id", id)
     .in("status", fromStatuses)
-    .select("id, creator_id, length_minutes, timing, requested_for, creator_time_zone")
+    .select("id, creator_id, length_minutes, timing, requested_for, creator_time_zone, creator_location")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: conflictMessage }, { status: 409 });
@@ -74,10 +74,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   // Kept neutral on purpose: these show on the creator's lock screen.
   if (body.action === "paid") {
     const when = data.timing === "scheduled" && data.requested_for ? formatCallTime(data.requested_for, data.creator_time_zone) : null;
+    // Some creators use a different location publicly, so always say which
+    // location's time the call is booked in.
+    const basis = data.creator_location ? `, based on your location: ${data.creator_location}` : "";
     await notifyCreator(data.creator_id, {
       title: when ? "Video call booked" : "Your video call is ready",
       body: when
-        ? `Payment's in for your ${data.length_minutes}-minute video call on ${when}. Tap for details.`
+        ? `Payment's in. Your ${data.length_minutes}-minute video call is booked for ${when}${basis}. Tap for details.`
         : `Payment's in for your ${data.length_minutes}-minute video call. Tap for details.`,
       url: `/video-calls#${id}`,
       tag: `video-call-${id}`,
@@ -94,7 +97,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   return NextResponse.json({ ok: true });
 }
 
-type BookBody = { time?: string; creatorTimeZone?: string };
+type BookBody = { time?: string; creatorTimeZone?: string; creatorLocation?: string };
 
 function validTimeZone(tz: string | null | undefined): string | null {
   if (!tz || (tz !== "UTC" && !tz.includes("/"))) return null;
@@ -160,6 +163,7 @@ async function bookSuggestedTime(id: string, body: BookBody, actorName: string |
       payment_deadline: new Date(now.getTime() + PAYMENT_WINDOW_MINUTES * 60_000).toISOString(),
       booked_from_request_id: id,
       creator_time_zone: validTimeZone(body.creatorTimeZone),
+      creator_location: typeof body.creatorLocation === "string" ? body.creatorLocation.trim().slice(0, 100) || null : null,
     })
     .select("id")
     .single();

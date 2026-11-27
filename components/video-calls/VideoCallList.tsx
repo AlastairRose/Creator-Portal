@@ -6,6 +6,7 @@ import { completeVideoCall, deleteVideoCall, respondToVideoCall, type VideoCallR
 import {
   DECLINE_REASON_LABELS,
   displayStatus,
+  formatInTimeZone,
   MAX_ALTERNATIVE_TIMES,
   statusLabel,
   type DeclineReason,
@@ -312,7 +313,7 @@ function InProgressCard({ r, now, onDone }: { r: Row; now: number; onDone?: () =
         {ready ? (
           booked ? (
             <>
-              Payment&apos;s in. Your call is on <strong className="text-foreground"><LocalTime iso={r.requested_for!} /></strong>.
+              Payment&apos;s in. <BookedTime r={r} />
             </>
           ) : (
             "Payment's in - get ready for the call."
@@ -327,6 +328,34 @@ function InProgressCard({ r, now, onDone }: { r: Row; now: number; onDone?: () =
       {r.notes && <p className="mt-3 whitespace-pre-wrap rounded-md bg-surface-raised p-3 text-sm">{r.notes}</p>}
       {ready && onDone && <CompleteCall id={r.id} onDone={onDone} />}
     </div>
+  );
+}
+
+/**
+ * When a booked call is, stated against the location the chat team has for
+ * her (some creators use a different location publicly), plus her phone's
+ * own clock so there's no mix-up.
+ */
+function BookedTime({ r }: { r: Row }) {
+  const booked = r.requested_for ? formatInTimeZone(r.requested_for, r.creator_time_zone) : null;
+  if (!r.requested_for) return null;
+  if (!booked) {
+    return (
+      <>
+        Your call is booked for <strong className="text-foreground"><LocalTime iso={r.requested_for} /></strong> (your phone&apos;s time).
+      </>
+    );
+  }
+  return (
+    <>
+      Your call is booked for <strong className="text-foreground">{booked}</strong>
+      {r.creator_location ? (
+        <>
+          , based on your location: <strong className="text-foreground">{r.creator_location}</strong>
+        </>
+      ) : null}
+      . On your phone&apos;s clock that&apos;s <LocalTime iso={r.requested_for} />.
+    </>
   );
 }
 
