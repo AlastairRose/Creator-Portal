@@ -3,6 +3,8 @@ import { signOutAction } from "@/lib/actions/auth";
 import { getCurrentProfile, isStaffRole } from "@/lib/roles";
 import AppSidebar from "@/components/shared/AppSidebar";
 import NotificationSetup from "@/components/shared/NotificationSetup";
+import AppBadgeSync from "@/components/shared/AppBadgeSync";
+import { getCreatorBadgeCount } from "@/lib/app-badge";
 import Link from "next/link";
 import { getOnboardingState } from "@/lib/onboarding/state";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     profile.role === "creator" && profile.creator_id ? await getOnboardingState(profile.creator_id) : null;
   if (onboarding && !onboarding.requiredDone) redirect("/onboarding");
   const onboardingIncomplete = !!onboarding && !onboarding.allDone;
+  const badgeCount = profile.role === "creator" && profile.creator_id ? await getCreatorBadgeCount(profile.creator_id) : null;
 
   const isStaff = isStaffRole(profile.role);
   const isOwner = profile.role === "owner";
@@ -86,6 +89,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </Link>
         )}
         {profile.role === "creator" && !onboardingIncomplete && <NotificationSetup />}
+        {badgeCount !== null && <AppBadgeSync count={badgeCount} />}
         {children}
       </main>
     </div>

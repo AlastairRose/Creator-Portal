@@ -13,15 +13,28 @@ self.addEventListener("push", (event) => {
   }
   const title = data.title || "Creator Portal";
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body || "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      tag: data.tag || undefined,
-      data: { url: data.url || "/" },
-    })
+    Promise.all([
+      updateBadge(data.badge),
+      self.registration.showNotification(title, {
+        body: data.body || "",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        tag: data.tag || undefined,
+        data: { url: data.url || "/" },
+      }),
+    ])
   );
 });
+
+// The red number on the home-screen icon: how many things are waiting.
+function updateBadge(count) {
+  try {
+    if (typeof count !== "number" || count < 0 || !self.navigator.setAppBadge) return Promise.resolve();
+    return (count === 0 ? self.navigator.clearAppBadge() : self.navigator.setAppBadge(count)).catch(() => {});
+  } catch (e) {
+    return Promise.resolve();
+  }
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

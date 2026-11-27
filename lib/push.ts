@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCreatorBadgeCount } from "@/lib/app-badge";
 
 // Server-only. Sends phone notifications to every device a creator's
 // account has turned notifications on for. Best-effort by design: a failed
@@ -11,6 +12,7 @@ export type PushMessage = {
   body: string;
   url: string; // portal path the notification opens, e.g. "/reels-to-film"
   tag?: string; // a newer notification with the same tag replaces the older one
+  badge?: number; // red number on the home-screen icon; filled in for creators
 };
 
 let configured: boolean | null = null;
@@ -41,7 +43,8 @@ export async function notifyCreator(creatorId: string, message: PushMessage): Pr
     if (profilesError) throw profilesError;
     const profileIds = (profiles ?? []).map((p) => p.id as string);
     if (profileIds.length === 0) return;
-    await sendToProfiles(profileIds, message);
+    const badge = message.badge ?? (await getCreatorBadgeCount(creatorId));
+    await sendToProfiles(profileIds, badge >= 0 ? { ...message, badge } : message);
   } catch (err) {
     console.error(`Couldn't send phone notification to creator ${creatorId}:`, err);
   }

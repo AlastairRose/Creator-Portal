@@ -61,6 +61,24 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+const TIPS_KEY = "notification-tips-seen";
+
+function readTipsSeen(): boolean {
+  try {
+    return typeof window !== "undefined" && localStorage.getItem(TIPS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markTipsSeen() {
+  try {
+    localStorage.setItem(TIPS_KEY, "1");
+  } catch {
+    // Private browsing: they'll see the tips again next time, which is fine.
+  }
+}
+
 function readSnoozed(): boolean {
   try {
     const until = Number(localStorage.getItem(SNOOZE_KEY) ?? 0);
@@ -297,6 +315,7 @@ export function NotificationSetupInline({
           <p className="text-sm text-success">
             {testSent ? "✓ We've sent you a test notification." : "✓ This device will get notifications."}
           </p>
+          <KeepVisibleTips platform={platform} />
           <button type="button" onClick={turnOff} disabled={isPending} className="self-start text-xs text-muted hover:underline">
             Turn off notifications on this device
           </button>
@@ -310,10 +329,27 @@ export default function NotificationSetup() {
   const { platform, status, isOpen, setIsOpen, error, testSent, isPending, close, turnOn, turnOff } =
     useNotificationSetup(true);
 
+  const [tipsSeen, setTipsSeen] = useState(readTipsSeen);
+
   if (status === "checking" || status === "unsupported" || status === "enabled-elsewhere") return null;
 
   return (
     <>
+      {status === "enabled" && !isOpen && !tipsSeen && platform !== "desktop" && (
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-accent/40 bg-accent/10 p-4">
+          <KeepVisibleTips platform={platform} />
+          <button
+            type="button"
+            onClick={() => {
+              markTipsSeen();
+              setTipsSeen(true);
+            }}
+            className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Done
+          </button>
+        </div>
+      )}
       {status !== "enabled" && !isOpen && (
         <button
           type="button"
@@ -373,6 +409,7 @@ export default function NotificationSetup() {
                   <p className="text-sm text-success">
                     {testSent ? "✓ We've sent you a test notification." : "✓ This device will get notifications."}
                   </p>
+                  <KeepVisibleTips platform={platform} />
                   <button
                     type="button"
                     onClick={close}
@@ -575,4 +612,56 @@ function GuideBody({ status, platform }: { status: Status; platform: Platform })
     default:
       return null;
   }
+}
+
+// Phones hide banners after a few seconds and bury older notifications, so
+// once notifications are on we show how to make them stay on screen.
+export function KeepVisibleTips({ platform }: { platform: Platform }) {
+  if (platform === "desktop") return null;
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-surface-raised p-3">
+      <p className="text-sm font-medium">Make sure you never miss one</p>
+      <p className="text-xs text-muted">
+        Notifications normally disappear after a few seconds. Make them stay on screen until you swipe them away:
+      </p>
+      {platform === "ios" ? (
+        <Steps
+          steps={[
+            <>
+              Open <strong>Settings</strong> → <strong>Notifications</strong> → <strong>Creator Portal</strong>.
+            </>,
+            <>
+              Under <strong>Alerts</strong>, tick <strong>Lock Screen</strong>, <strong>Notification Centre</strong> and{" "}
+              <strong>Banners</strong>.
+            </>,
+            <>
+              Set <strong>Banner Style</strong> to <strong>Persistent</strong>.
+            </>,
+            <>
+              Turn on <strong>Badges</strong>, so the app icon shows a red number for things waiting for you.
+            </>,
+            <>
+              If you see <strong>Scheduled Summary</strong>, make sure Creator Portal isn&apos;t in it.
+            </>,
+          ]}
+        />
+      ) : (
+        <Steps
+          steps={[
+            <>
+              Open <strong>Settings</strong> → <strong>Apps</strong> → <strong>Creator Portal</strong> →{" "}
+              <strong>Notifications</strong>.
+            </>,
+            <>
+              Set them to <strong>Alerting</strong> (or <strong>Default</strong>) and turn on <strong>Pop on screen</strong>.
+            </>,
+            <>
+              Turn on <strong>App icon badges</strong> (sometimes called <strong>Notification dot</strong>), so the icon
+              shows when something is waiting.
+            </>,
+          ]}
+        />
+      )}
+    </div>
+  );
 }
