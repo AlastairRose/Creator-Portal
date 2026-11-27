@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { completeVideoCall, deleteVideoCall, respondToVideoCall, type VideoCallResponse } from "@/lib/actions/video-calls";
+import { completeVideoCall, confirmVideoCallAttendance, deleteVideoCall, respondToVideoCall, type VideoCallResponse } from "@/lib/actions/video-calls";
 import {
   DECLINE_REASON_LABELS,
   displayStatus,
@@ -326,6 +326,9 @@ function InProgressCard({ r, now, onDone }: { r: Row; now: number; onDone?: () =
       </p>
       <Details r={r} showCreator={false} />
       {r.notes && <p className="mt-3 whitespace-pre-wrap rounded-md bg-surface-raised p-3 text-sm">{r.notes}</p>}
+      {ready && booked && onDone && r.requested_for && new Date(r.requested_for).getTime() > now && (
+        <Attendance r={r} onDone={onDone} />
+      )}
       {ready && onDone && <CompleteCall id={r.id} onDone={onDone} />}
     </div>
   );
@@ -356,6 +359,43 @@ function BookedTime({ r }: { r: Row }) {
       ) : null}
       . On your phone&apos;s clock that&apos;s <LocalTime iso={r.requested_for} />.
     </>
+  );
+}
+
+/** Before a booked call: confirm she'll be there, or ask to move it. */
+function Attendance({ r, onDone }: { r: Row; onDone: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  if (r.attendance_confirmed_at) {
+    return <p className="mt-3 text-sm font-medium text-success">✓ You&apos;ve confirmed you&apos;ll be there.</p>;
+  }
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              setError(null);
+              const result = await confirmVideoCallAttendance(r.id);
+              if (result.error) setError(result.error);
+              else onDone();
+            })
+          }
+          className="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "I'll be there"}
+        </button>
+        <a
+          href={`/chat-team?call=${r.id}&change=1`}
+          className="flex-1 rounded-md border border-border px-4 py-2.5 text-center text-sm font-medium hover:bg-surface-raised"
+        >
+          I need to change the time
+        </a>
+      </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
+    </div>
   );
 }
 

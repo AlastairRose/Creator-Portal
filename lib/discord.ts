@@ -8,7 +8,7 @@ import { DECLINE_REASON_LABELS, PAYMENT_WINDOW_MINUTES, type DeclineReason } fro
 const CHATTER_PORTAL_URL = (process.env.CHATTER_PORTAL_URL || "https://chatter-portal.vercel.app").replace(/\/+$/, "");
 const CHAT_TEAM_TIME_ZONE = "Asia/Manila";
 
-async function postToDiscord(content: string): Promise<void> {
+export async function postToDiscord(content: string): Promise<void> {
   const url = process.env.DISCORD_VIDEO_CALL_WEBHOOK_URL;
   if (!url) {
     console.warn("Discord isn't set up (no DISCORD_VIDEO_CALL_WEBHOOK_URL) - skipping.");
@@ -29,6 +29,11 @@ async function postToDiscord(content: string): Promise<void> {
   } catch (err) {
     console.error("Discord post failed:", err);
   }
+}
+
+/** Text from people's own typing: stop it pinging anyone or breaking formatting. */
+export function discordSafe(s: unknown): string {
+  return String(s ?? "").replace(/@/g, "@\u200b").replace(/[*_`~|>]/g, "");
 }
 
 function manilaTime(iso: string): string {
@@ -105,6 +110,26 @@ export async function announceVideoCallCompleted(requestId: string): Promise<voi
     );
   } catch (err) {
     console.error("Couldn't announce completed video call on Discord:", err);
+  }
+}
+
+// "Lola confirmed she'll be on the 7:00pm call with mike_92."
+export async function announceAttendanceConfirmed(requestId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: r } = await admin
+      .from("video_call_requests")
+      .select("creator_id, fan_name, length_minutes, requested_for")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!r) return;
+    const { data: creator } = await admin.from("creators").select("name").eq("id", r.creator_id).maybeSingle();
+    const when = r.requested_for ? ` at ${manilaTime(r.requested_for as string)} Manila time` : "";
+    await postToDiscord(
+      `✅ **${discordSafe(creator?.name ?? "A creator")}** has confirmed she'll be on the ${r.length_minutes}-minute video call with ${discordSafe(r.fan_name)}${when}.`
+    );
+  } catch (err) {
+    console.error("Couldn't announce attendance on Discord:", err);
   }
 }
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyCreator } from "@/lib/push";
+import { formatInTimeZone } from "@/lib/video-calls";
 
 // A request that arrives while a creator is asleep gets buried under other
 // notifications. If it still has no answer after 12 hours, send one fresh
@@ -91,6 +92,47 @@ export async function sendCompleteCallReminders(admin: SupabaseClient): Promise<
       body: "Did your video call happen? Tap to mark it complete and add a few notes for the chat team.",
       url: `/video-calls#${r.id}`,
       tag: `video-call-complete-${r.id}`,
+    });
+    reminded++;
+  }
+  return { reminded };
+}
+
+// About an hour before a booked (paid, scheduled) call: a reminder with the
+// time, asking her to confirm she'll be there or to ask for a change. The
+// schedule runs every 15 minutes, so this lands 45-60 minutes before.
+const ATTENDANCE_REMINDER_MINUTES = 60;
+
+export async function sendAttendanceReminders(admin: SupabaseClient): Promise<{ reminded: number }> {
+  const now = Date.now();
+  const { data, error } = await admin
+    .from("video_call_requests")
+    .select("id, creator_id, length_minutes, requested_for, creator_time_zone, creator_location")
+    .eq("status", "ready")
+    .eq("timing", "scheduled")
+    .is("attendance_reminder_sent_at", null)
+    .gt("requested_for", new Date(now).toISOString())
+    .lte("requested_for", new Date(now + ATTENDANCE_REMINDER_MINUTES * 60_000).toISOString());
+  if (error) throw new Error(error.message);
+
+  let reminded = 0;
+  for (const r of data ?? []) {
+    const { data: claimed } = await admin
+      .from("video_call_requests")
+      .update({ attendance_reminder_sent_at: new Date(now).toISOString() })
+      .eq("id", r.id)
+      .is("attendance_reminder_sent_at", null)
+      .select("id");
+    if (!claimed?.length) continue;
+
+    const at = formatInTimeZone(r.requested_for as string, r.creator_time_zone as string | null);
+    const timeText = at ? `at ${at.split(", ").pop()}${r.creator_location ? ` (${r.creator_location} time)` : ""}` : "in about an hour";
+    // Kept neutral on purpose: this shows on the creator's lock screen.
+    await notifyCreator(r.creator_id as string, {
+      title: "Video call in about an hour",
+      body: `Your ${r.length_minutes}-minute video call is ${timeText}. Tap to confirm you'll be there, or ask to change the time.`,
+      url: `/video-calls#${r.id}`,
+      tag: `video-call-${r.id}`,
     });
     reminded++;
   }

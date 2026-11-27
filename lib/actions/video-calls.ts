@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/roles";
-import { announceVideoCallCompleted, announceVideoCallResponse } from "@/lib/discord";
+import { announceAttendanceConfirmed, announceVideoCallCompleted, announceVideoCallResponse } from "@/lib/discord";
 import { isNoReply, MAX_ALTERNATIVE_TIMES, PAYMENT_WINDOW_MINUTES, type DeclineReason } from "@/lib/video-calls";
 
 export type VideoCallResponse =
@@ -131,5 +131,25 @@ export async function deleteVideoCall(id: string): Promise<{ error: string | nul
   if (!data || data.length === 0) return { error: "That request was already deleted." };
   revalidatePath("/video-calls");
   revalidatePath(`/planner/${data[0].creator_id}`);
+  return { error: null };
+}
+
+// Before a booked call: "I'll be there". Lets the chat team know on Discord.
+export async function confirmVideoCallAttendance(id: string): Promise<{ error: string | null }> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "creator" || !profile.creator_id) return { error: "Only the creator can confirm this." };
+  const { data, error } = await createAdminClient()
+    .from("video_call_requests")
+    .update({ attendance_confirmed_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("creator_id", profile.creator_id)
+    .eq("status", "ready")
+    .is("attendance_confirmed_at", null)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "This call is already confirmed, or isn't booked any more." };
+  await announceAttendanceConfirmed(id);
+  revalidatePath(`/planner/${profile.creator_id}`);
+  revalidatePath("/");
   return { error: null };
 }
