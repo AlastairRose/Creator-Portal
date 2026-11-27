@@ -8,114 +8,20 @@ import {
   sendCreatorMessage,
   startCreatorChat,
 } from "@/lib/actions/creator-chats";
-import type { ChatMessage, ChatTopic, CreatorChat } from "@/lib/creator-chats";
+import type { ChatMessage, CreatorChat } from "@/lib/creator-chats";
 
-// The creator's "Message the Chat Team" screen. A few questions first: only
-// customs, video calls and helping with a fan chat open a live chat. Anything
-// else is pointed to management in WhatsApp, because management, not the
-// creator, manages the chatters.
+// A creator's messages with the chat team. She can only start one from a
+// video call request (the "Message the chat team about this call" link on
+// the call), so it stays about video calls. Everything else goes to
+// management in WhatsApp.
 
 const POLL_MS = 4000;
 
-const TOPIC_LABELS: Record<ChatTopic, string> = {
+const TOPIC_LABELS: Record<string, string> = {
   chat_custom: "Helping close a custom in a fan chat",
   chat_context: "Details or context for a fan chat",
   custom_closing: "A fan chat closing a custom",
   video_call: "A video call",
-};
-
-type Step =
-  | { kind: "question"; id: string; question: string; options: { label: string; next: Step }[] }
-  | { kind: "whatsapp"; message: string }
-  | { kind: "chat"; topic: ChatTopic; prompt: string };
-
-const WHATSAPP_MANAGEMENT: Step = {
-  kind: "whatsapp",
-  message: "Anything else goes to management. Please message them in your WhatsApp group.",
-};
-
-const TREE: Step = {
-  kind: "question",
-  id: "root",
-  question: "What would you like help with?",
-  options: [
-    {
-      label: "Marketing (reels, posting, accounts)",
-      next: {
-        kind: "whatsapp",
-        message: "For anything about reels, posting or your accounts, please raise it with your creative director or management in your WhatsApp group.",
-      },
-    },
-    {
-      label: "A fan chat",
-      next: {
-        kind: "question",
-        id: "chatting",
-        question: "What about the chatting?",
-        options: [
-          {
-            label: "The chatter doesn't sound like me",
-            next: {
-              kind: "whatsapp",
-              message: "Please raise this with management in your WhatsApp group. They'll work on it with the chat team.",
-            },
-          },
-          {
-            label: "I'd like to help close a custom in an ongoing chat",
-            next: { kind: "chat", topic: "chat_custom", prompt: "Tell the chatter how you'd like to help close it." },
-          },
-          {
-            label: "I'd like to give the chatter details or context on an ongoing chat",
-            next: { kind: "chat", topic: "chat_context", prompt: "What should the chatter know?" },
-          },
-          { label: "Something else about the chatting", next: WHATSAPP_MANAGEMENT },
-        ],
-      },
-    },
-    {
-      label: "Custom requests",
-      next: {
-        kind: "question",
-        id: "customs",
-        question: "What about custom requests?",
-        options: [
-          {
-            label: "I can't complete a custom",
-            next: {
-              kind: "whatsapp",
-              message: "Please raise this in your WhatsApp group, or message Shona privately if you'd prefer.",
-            },
-          },
-          {
-            label: "I can see a chat closing a custom and want to speak with the chatter",
-            next: { kind: "chat", topic: "custom_closing", prompt: "What would you like to tell the chatter?" },
-          },
-        ],
-      },
-    },
-    {
-      label: "Video calls",
-      next: {
-        kind: "question",
-        id: "calls",
-        question: "What about video calls?",
-        options: [
-          {
-            label: "I'd like to suggest times or discuss a video call sale",
-            next: { kind: "chat", topic: "video_call", prompt: "What would you like to tell the chatter?" },
-          },
-          {
-            label: "I need to cancel or change a booked video call",
-            next: {
-              kind: "whatsapp",
-              message: "Please raise this in your WhatsApp group, so management can sort it out with the fan.",
-            },
-          },
-        ],
-      },
-    },
-    { label: "Something else", next: WHATSAPP_MANAGEMENT },
-  ],
 };
 
 type ChatRow = CreatorChat & { unread: boolean };
@@ -130,17 +36,17 @@ function timeLabel(iso: string): string {
 
 export default function ChatTeam({
   initialChatId,
-  prefill,
+  callId,
+  changeTime,
 }: {
   initialChatId: string | null;
-  prefill: { topic: ChatTopic; videoCallId: string | null; message: string } | null;
+  callId: string | null;
+  changeTime: boolean;
 }) {
   const [chats, setChats] = useState<ChatRow[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(initialChatId);
+  const [composeFor, setComposeFor] = useState<string | null>(callId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [path, setPath] = useState<Step[] | null>(
-    prefill ? [TREE, { kind: "chat", topic: prefill.topic, prompt: "What would you like to tell the chat team?" }] : null
-  );
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -159,6 +65,17 @@ export default function ChatTeam({
     };
   }, [refresh]);
 
+  // Coming from a call: carry on its open chat if there is one.
+  const existingForCall = composeFor && chats ? chats.find((c) => c.video_call_request_id === composeFor && c.status === "open") : null;
+  useEffect(() => {
+    if (!existingForCall) return;
+    const t = setTimeout(() => {
+      setOpenId(existingForCall.id);
+      setComposeFor(null);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [existingForCall]);
+
   const openChat = chats?.find((c) => c.id === openId) ?? null;
 
   if (openId) {
@@ -175,41 +92,34 @@ export default function ChatTeam({
     );
   }
 
-  if (path) {
+  if (composeFor) {
+    if (chats === null) return <p className="text-sm text-muted">Loading…</p>;
     return (
-      <Wizard
-        path={path}
-        setPath={setPath}
-        prefill={prefill}
+      <Compose
+        callId={composeFor}
+        startText={changeTime ? "I need to change the time of this call. Could we move it to: " : ""}
+        onCancel={() => setComposeFor(null)}
         onStarted={(id) => {
-          setPath(null);
+          setComposeFor(null);
           setOpenId(id);
         }}
       />
     );
   }
 
-  const openChats = (chats ?? []).filter((c) => c.status === "open");
-  const closedChats = (chats ?? []).filter((c) => c.status === "closed");
-
   return (
     <div className="flex flex-col gap-5">
-      <button
-        type="button"
-        onClick={() => setPath([TREE])}
-        className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-medium text-white hover:opacity-90 sm:w-auto sm:self-start"
-      >
-        Start a new message
-      </button>
+      <p className="rounded-lg border border-border bg-surface p-4 text-sm text-muted">
+        To message the chat team, open a video call request in your Content Planner and tap{" "}
+        <strong className="text-foreground">Message the chat team about this call</strong>.
+      </p>
       {error && <p className="text-sm text-danger">{error}</p>}
       {chats === null ? (
         <p className="text-sm text-muted">Loading…</p>
-      ) : chats.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted">No messages yet.</p>
-      ) : (
+      ) : chats.length === 0 ? null : (
         <>
-          {openChats.length > 0 && <ChatList title="Open" chats={openChats} onOpen={setOpenId} />}
-          {closedChats.length > 0 && <ChatList title="Closed" chats={closedChats} onOpen={setOpenId} />}
+          <ChatList title="Open" chats={chats.filter((c) => c.status === "open")} onOpen={setOpenId} />
+          <ChatList title="Closed" chats={chats.filter((c) => c.status === "closed")} onOpen={setOpenId} />
         </>
       )}
     </div>
@@ -217,6 +127,7 @@ export default function ChatTeam({
 }
 
 function ChatList({ title, chats, onOpen }: { title: string; chats: ChatRow[]; onOpen: (id: string) => void }) {
+  if (chats.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-xs font-medium uppercase tracking-wide text-muted">{title}</h2>
@@ -228,7 +139,7 @@ function ChatList({ title, chats, onOpen }: { title: string; chats: ChatRow[]; o
           className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-4 text-left hover:border-accent"
         >
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">{TOPIC_LABELS[c.topic]}</span>
+            <span className="block truncate text-sm font-medium">{TOPIC_LABELS[c.topic] ?? "A chat"}</span>
             <span className="block truncate text-xs text-muted">
               {c.fan_name ? `Fan: ${c.fan_name} · ` : ""}
               {timeLabel(c.last_message_at)}
@@ -241,137 +152,56 @@ function ChatList({ title, chats, onOpen }: { title: string; chats: ChatRow[]; o
   );
 }
 
-function Wizard({
-  path,
-  setPath,
-  prefill,
-  onStarted,
-}: {
-  path: Step[];
-  setPath: (p: Step[] | null) => void;
-  prefill: { topic: ChatTopic; videoCallId: string | null; message: string } | null;
-  onStarted: (chatId: string) => void;
-}) {
-  const step = path[path.length - 1];
-  const back = () => setPath(path.length > 1 ? path.slice(0, -1) : null);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <button type="button" onClick={back} className="self-start text-xs text-muted hover:underline">
-        ← Back
-      </button>
-      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
-        {step.kind === "question" && (
-          <>
-            <h2 className="text-base font-semibold">{step.question}</h2>
-            {step.options.map((o) => (
-              <button
-                key={o.label}
-                type="button"
-                onClick={() => setPath([...path, o.next])}
-                className="w-full rounded-lg border border-border bg-surface-raised px-4 py-3 text-left text-sm hover:border-accent"
-              >
-                {o.label}
-              </button>
-            ))}
-          </>
-        )}
-        {step.kind === "whatsapp" && (
-          <>
-            <h2 className="text-base font-semibold">Message management</h2>
-            <p className="text-sm">{step.message}</p>
-            <p className="text-xs text-muted">
-              The chat team can help with custom requests, video calls and fan chats. Management looks after everything else.
-            </p>
-            <button type="button" onClick={() => setPath(null)} className="self-start text-sm font-medium text-accent hover:underline">
-              Done
-            </button>
-          </>
-        )}
-        {step.kind === "chat" && <Compose topic={step.topic} prompt={step.prompt} prefill={prefill} onStarted={onStarted} />}
-      </section>
-    </div>
-  );
-}
-
 function Compose({
-  topic,
-  prompt,
-  prefill,
+  callId,
+  startText,
+  onCancel,
   onStarted,
 }: {
-  topic: ChatTopic;
-  prompt: string;
-  prefill: { topic: ChatTopic; videoCallId: string | null; message: string } | null;
+  callId: string;
+  startText: string;
+  onCancel: () => void;
   onStarted: (chatId: string) => void;
 }) {
-  const [fanName, setFanName] = useState("");
-  const [videoCallId, setVideoCallId] = useState(prefill?.topic === topic ? prefill.videoCallId ?? "" : "");
-  const [calls, setCalls] = useState<{ id: string; label: string }[]>([]);
-  const [message, setMessage] = useState(prefill?.topic === topic ? prefill.message : "");
+  const [label, setLabel] = useState<string | null>(null);
+  const [message, setMessage] = useState(startText);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (topic !== "video_call") return;
-    loadMyRecentVideoCalls().then(setCalls).catch(() => setCalls([]));
-  }, [topic]);
+    loadMyRecentVideoCalls()
+      .then((calls) => setLabel(calls.find((c) => c.id === callId)?.label ?? null))
+      .catch(() => setLabel(null));
+  }, [callId]);
 
   return (
-    <>
-      <h2 className="text-base font-semibold">{TOPIC_LABELS[topic]}</h2>
+    <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
+      <button type="button" onClick={onCancel} className="self-start text-xs text-muted hover:underline">
+        ← Back
+      </button>
+      <h2 className="text-base font-semibold">Message the chat team about this call</h2>
+      {label && <p className="text-sm text-muted">{label}</p>}
       <p className="text-xs text-muted">
-        This goes to the chat team on shift. They&apos;ll reply here, and you&apos;ll get a notification.
+        For suggesting times or anything about this video call. They&apos;ll reply here, and you&apos;ll get a
+        notification. For anything else, message management in your WhatsApp group.
       </p>
-      {topic === "video_call" ? (
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Which video call? (optional)
-          <select
-            id="chat-video-call"
-            value={videoCallId}
-            onChange={(e) => setVideoCallId(e.target.value)}
-            className="rounded-md border border-border bg-surface-raised px-3 py-2.5 text-sm text-foreground"
-          >
-            <option value="">Not about a specific one</option>
-            {calls.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Fan&apos;s name or username (helps the chatter find the chat)
-          <input
-            id="chat-fan-name"
-            value={fanName}
-            onChange={(e) => setFanName(e.target.value)}
-            maxLength={120}
-            autoCapitalize="none"
-            className="rounded-md border border-border bg-surface-raised px-3 py-2.5 text-sm text-foreground"
-          />
-        </label>
-      )}
-      <label className="flex flex-col gap-1 text-xs text-muted">
-        {prompt}
-        <textarea
-          id="chat-first-message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={4}
-          maxLength={4000}
-          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground"
-        />
-      </label>
+      <textarea
+        id="chat-first-message"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        rows={4}
+        maxLength={4000}
+        placeholder="What would you like the chat team to know?"
+        className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm"
+      />
       {error && <p className="text-sm text-danger">{error}</p>}
       <button
         type="button"
-        disabled={pending}
+        disabled={pending || !message.trim()}
         onClick={() =>
           startTransition(async () => {
             setError(null);
-            const result = await startCreatorChat({ topic, fanName, videoCallId: videoCallId || null, message });
+            const result = await startCreatorChat({ topic: "video_call", videoCallId: callId, message });
             if (result.error || !result.chatId) setError(result.error ?? "Couldn't send that.");
             else onStarted(result.chatId);
           })
@@ -380,7 +210,7 @@ function Compose({
       >
         {pending ? "Sending…" : "Send to the chat team"}
       </button>
-    </>
+    </section>
   );
 }
 
@@ -443,7 +273,7 @@ function Thread({
       </div>
       {chat && (
         <div>
-          <h2 className="text-base font-semibold">{TOPIC_LABELS[chat.topic]}</h2>
+          <h2 className="text-base font-semibold">{TOPIC_LABELS[chat.topic] ?? "A chat"}</h2>
           {chat.fan_name && <p className="text-xs text-muted">Fan: {chat.fan_name}</p>}
         </div>
       )}

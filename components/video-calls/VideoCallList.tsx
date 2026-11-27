@@ -161,6 +161,7 @@ function AnswerCard({ r, now, onDone }: { r: Row; now: number; onDone: () => voi
         <p className={`text-xs ${left <= 5 ? "font-medium text-danger" : "text-muted"}`}>Reply within {left} min</p>
       </div>
       <Details r={r} showCreator={false} />
+      <MessageTeamLink id={r.id} />
       {r.notes && <p className="mt-3 whitespace-pre-wrap rounded-md bg-surface-raised p-3 text-sm">{r.notes}</p>}
 
       {mode === "choose" && (
@@ -279,6 +280,7 @@ function MissedCard({ r, now, onDone }: { r: Row; now: number; onDone: () => voi
       <p className="mt-1 text-sm">Suggest a time you&apos;d be available for this fan and the chat team will offer it to them.</p>
       <div className="mt-3">
         <Details r={r} showCreator={false} />
+      <MessageTeamLink id={r.id} />
       </div>
       <div className="mt-4 flex flex-col gap-3">
         <TimeSlots times={times} setTimes={setTimes} now={now} firstRequired />
@@ -325,6 +327,7 @@ function InProgressCard({ r, now, onDone }: { r: Row; now: number; onDone?: () =
         )}
       </p>
       <Details r={r} showCreator={false} />
+      <MessageTeamLink id={r.id} />
       {r.notes && <p className="mt-3 whitespace-pre-wrap rounded-md bg-surface-raised p-3 text-sm">{r.notes}</p>}
       {ready && booked && onDone && r.requested_for && new Date(r.requested_for).getTime() > now && (
         <Attendance r={r} onDone={onDone} />
@@ -359,6 +362,15 @@ function BookedTime({ r }: { r: Row }) {
       ) : null}
       . On your phone&apos;s clock that&apos;s <LocalTime iso={r.requested_for} />.
     </>
+  );
+}
+
+/** The only way a creator messages the chat team: about one of her video calls. */
+function MessageTeamLink({ id }: { id: string }) {
+  return (
+    <a href={`/chat-team?call=${id}`} className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
+      💬 Message the chat team about this call
+    </a>
   );
 }
 

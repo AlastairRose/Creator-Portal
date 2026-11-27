@@ -46,7 +46,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ...(isOwner ? [{ href: "/admin/users", label: "Users" }] : []),
     ...(isOwner ? [{ href: "/admin/google-drive", label: "Google Drive" }] : []),
     ...(isOwner ? [{ href: "/admin/onboarding", label: "Onboarding" }] : []),
-    ...(profile.role === "creator" ? [{ href: "/chat-team", label: "Message the Chat Team" }] : []),
     ...(profile.role === "creator" ? [{ href: "/my-info", label: "My Info" }] : []),
     ...(profile.role === "creator" ? [{ href: "/meta-access", label: "Instagram Access" }] : []),
     ...(profile.role === "creator" && onboarding?.done.agreement ? [{ href: "/agreement", label: "My Agreement" }] : []),

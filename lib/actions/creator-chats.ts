@@ -16,8 +16,6 @@ import {
 
 // The creator's side of the live chat with the chat team.
 
-const TOPICS: ChatTopic[] = ["chat_custom", "chat_context", "custom_closing", "video_call"];
-
 async function me() {
   const profile = await getCurrentProfile();
   if (!profile || profile.role !== "creator" || !profile.creator_id) return null;
@@ -37,7 +35,10 @@ export async function startCreatorChat(input: {
 }): Promise<{ error: string | null; chatId?: string }> {
   const who = await me();
   if (!who) return { error: "Only creators can start a chat with the chat team." };
-  if (!TOPICS.includes(input.topic)) return { error: "Pick what it's about." };
+  // Creators can only message the chat team about one of their video calls.
+  if (input.topic !== "video_call" || !input.videoCallId) {
+    return { error: "You can message the chat team from one of your video call requests." };
+  }
   const message = cleanMessage(input.message);
   if (!message) return { error: "Type your message first." };
   const fanName = (input.fanName ?? "").trim().slice(0, 120) || null;
@@ -45,14 +46,15 @@ export async function startCreatorChat(input: {
   const admin = createAdminClient();
   let videoCallId: string | null = null;
   let summary: string | null = null;
-  if (input.videoCallId) {
-    summary = await videoCallSummary(input.videoCallId, who.creatorId);
-    if (summary) videoCallId = input.videoCallId;
-  }
+  summary = await videoCallSummary(input.videoCallId, who.creatorId);
+  if (!summary) return { error: "That video call request wasn't found." };
+  videoCallId = input.videoCallId;
+  const { data: call } = await admin.from("video_call_requests").select("fan_name").eq("id", videoCallId).maybeSingle();
+  const callFanName = (call?.fan_name as string | undefined) ?? null;
 
   const { data: chat, error } = await admin
     .from("creator_chats")
-    .insert({ creator_id: who.creatorId, topic: input.topic, fan_name: fanName, video_call_request_id: videoCallId })
+    .insert({ creator_id: who.creatorId, topic: input.topic, fan_name: fanName ?? callFanName, video_call_request_id: videoCallId })
     .select("id")
     .single();
   if (error || !chat) return { error: error?.message ?? "Couldn't start the chat." };
