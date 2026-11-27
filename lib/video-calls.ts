@@ -41,6 +41,7 @@ export type VideoCallRequest = {
   team_seen_by_name: string | null;
   completed_at: string | null;
   completion_notes: string | null;
+  booked_from_request_id: string | null; // booked from one of her suggested times
   created_at: string;
 };
 
@@ -52,7 +53,7 @@ export const PAYMENT_WINDOW_MINUTES = 20;
 export const MAX_ALTERNATIVE_TIMES = 3;
 
 export const VIDEO_CALL_COLUMNS =
-  "id, creator_id, chatter_portal_creator_id, requested_by_name, requested_by_ref, fan_name, length_minutes, price_usd, notes, timing, requested_for, expires_at, status, decline_reason, decline_note, alternative_times, responded_at, accepted_at, payment_deadline, paid_at, paid_by_name, cancel_reason, cancelled_by_name, team_seen_at, team_seen_by_name, completed_at, completion_notes, created_at";
+  "id, creator_id, chatter_portal_creator_id, requested_by_name, requested_by_ref, fan_name, length_minutes, price_usd, notes, timing, requested_for, expires_at, status, decline_reason, decline_note, alternative_times, responded_at, accepted_at, payment_deadline, paid_at, paid_by_name, cancel_reason, cancelled_by_name, team_seen_at, team_seen_by_name, completed_at, completion_notes, booked_from_request_id, created_at";
 
 /** Waiting on the creator but past the reply window. */
 export function isNoReply(r: Pick<VideoCallRequest, "status" | "expires_at">, now = Date.now()): boolean {

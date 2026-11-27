@@ -299,18 +299,29 @@ function MissedCard({ r, now, onDone }: { r: Row; now: number; onDone: () => voi
 /** Accepted (waiting for the fan to pay) or paid and ready. */
 function InProgressCard({ r, now, onDone }: { r: Row; now: number; onDone?: () => void }) {
   const ready = r.status === "ready";
+  const booked = r.timing === "scheduled" && !!r.requested_for;
   return (
     <div id={r.id} className={`scroll-mt-6 rounded-lg border p-4 shadow-sm ${ready ? "border-success/50 bg-success/10" : "border-border bg-surface"}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className={`text-sm font-semibold ${ready ? "text-success" : ""}`}>
-          {ready ? "Your video call is ready" : "Waiting for the fan to pay…"}
+          {ready ? (booked ? "Your video call is booked" : "Your video call is ready") : "Waiting for the fan to pay…"}
         </p>
         {!ready && r.payment_deadline && <p className="text-xs text-muted">Up to {minutesLeft(r.payment_deadline, now)} min</p>}
       </div>
       <p className="mb-3 text-sm text-muted">
-        {ready
-          ? "Payment's in - get ready for the call."
-          : "You accepted. The chat team is confirming payment - we'll notify you as soon as it's ready (or if the fan doesn't pay)."}
+        {ready ? (
+          booked ? (
+            <>
+              Payment&apos;s in. Your call is on <strong className="text-foreground"><LocalTime iso={r.requested_for!} /></strong>.
+            </>
+          ) : (
+            "Payment's in - get ready for the call."
+          )
+        ) : r.booked_from_request_id ? (
+          "The fan agreed to one of the times you suggested. The chat team is collecting payment - we'll notify you as soon as it's paid."
+        ) : (
+          "You accepted. The chat team is confirming payment - we'll notify you as soon as it's ready (or if the fan doesn't pay)."
+        )}
       </p>
       <Details r={r} showCreator={false} />
       {r.notes && <p className="mt-3 whitespace-pre-wrap rounded-md bg-surface-raised p-3 text-sm">{r.notes}</p>}
