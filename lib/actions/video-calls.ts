@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/roles";
+import { announceVideoCallResponse } from "@/lib/discord";
 import { isNoReply, MAX_ALTERNATIVE_TIMES, PAYMENT_WINDOW_MINUTES, type DeclineReason } from "@/lib/video-calls";
 
 export type VideoCallResponse =
@@ -81,6 +82,9 @@ export async function respondToVideoCall(id: string, response: VideoCallResponse
     .select("id");
   if (error) return { error: error.message };
   if (!updated || updated.length === 0) return { error: "This request was already answered or cancelled." };
+
+  // Tells the chat team in Discord straight away, so someone follows up.
+  await announceVideoCallResponse(id);
 
   revalidatePath("/video-calls");
   return { error: null };
