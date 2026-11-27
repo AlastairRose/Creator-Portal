@@ -149,8 +149,8 @@ export async function announceUnconfirmedCall(requestId: string): Promise<void> 
     await postToDiscord(
       [
         `⚠️ @everyone **${name}** hasn't confirmed her ${r.length_minutes}-minute video call with ${discordSafe(r.fan_name)}${when}. It starts in about 15 minutes.`,
-        `Message her in Creator Chats now and let management know. Keep the fan chat quiet until she's confirmed.`,
-        `${CHATTER_PORTAL_URL}/creator-chats`,
+        `**Managers:** please contact ${name} now to check she's ready.`,
+        `**Chatters:** keep the fan chat quiet until she's confirmed.`,
       ].join("\n")
     );
   } catch (err) {
