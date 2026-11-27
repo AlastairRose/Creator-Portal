@@ -638,7 +638,7 @@ export function KeepVisibleTips({ platform }: { platform: Platform }) {
               Set <strong>Banner Style</strong> to <strong>Persistent</strong>.
             </>,
             <>
-              Turn on <strong>Badges</strong>, so the app icon shows a red number for things waiting for you.
+              Turn on <strong>Badges</strong>, so the app icon shows a red number for customs and video calls waiting for you.
             </>,
             <>
               If you see <strong>Scheduled Summary</strong>, make sure Creator Portal isn&apos;t in it.
@@ -657,7 +657,7 @@ export function KeepVisibleTips({ platform }: { platform: Platform }) {
             </>,
             <>
               Turn on <strong>App icon badges</strong> (sometimes called <strong>Notification dot</strong>), so the icon
-              shows when something is waiting.
+              shows when a custom or video call is waiting.
             </>,
           ]}
         />
