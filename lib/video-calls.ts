@@ -5,10 +5,11 @@
 //   missed   -> she replied late with times to offer the fan instead
 //   accepted -> waiting for the fan to pay (chat team has 20 min)
 //   ready    -> paid; creator told the call is ready
+//   completed-> she did the call and left notes for the fan's notes
 //   declined -> not available / price too low / not interested
 //   cancelled-> by the chat team, or the fan didn't pay
 
-export type VideoCallStatus = "pending" | "missed" | "accepted" | "ready" | "declined" | "cancelled";
+export type VideoCallStatus = "pending" | "missed" | "accepted" | "ready" | "completed" | "declined" | "cancelled";
 export type DeclineReason = "unavailable" | "price_too_low" | "not_interested";
 export type CancelReason = "chatter_cancelled" | "fan_didnt_pay";
 
@@ -38,6 +39,8 @@ export type VideoCallRequest = {
   cancelled_by_name: string | null;
   team_seen_at: string | null;
   team_seen_by_name: string | null;
+  completed_at: string | null;
+  completion_notes: string | null;
   created_at: string;
 };
 
@@ -49,7 +52,7 @@ export const PAYMENT_WINDOW_MINUTES = 20;
 export const MAX_ALTERNATIVE_TIMES = 3;
 
 export const VIDEO_CALL_COLUMNS =
-  "id, creator_id, chatter_portal_creator_id, requested_by_name, requested_by_ref, fan_name, length_minutes, price_usd, notes, timing, requested_for, expires_at, status, decline_reason, decline_note, alternative_times, responded_at, accepted_at, payment_deadline, paid_at, paid_by_name, cancel_reason, cancelled_by_name, team_seen_at, team_seen_by_name, created_at";
+  "id, creator_id, chatter_portal_creator_id, requested_by_name, requested_by_ref, fan_name, length_minutes, price_usd, notes, timing, requested_for, expires_at, status, decline_reason, decline_note, alternative_times, responded_at, accepted_at, payment_deadline, paid_at, paid_by_name, cancel_reason, cancelled_by_name, team_seen_at, team_seen_by_name, completed_at, completion_notes, created_at";
 
 /** Waiting on the creator but past the reply window. */
 export function isNoReply(r: Pick<VideoCallRequest, "status" | "expires_at">, now = Date.now()): boolean {
@@ -86,6 +89,8 @@ export function statusLabel(r: Pick<VideoCallRequest, "status" | "expires_at" | 
       return "Accepted - waiting for payment";
     case "ready":
       return "Paid - call ready";
+    case "completed":
+      return "Completed";
     case "declined":
       return `Declined - ${DECLINE_REASON_LABELS[r.decline_reason ?? "not_interested"].toLowerCase()}`;
     case "cancelled":

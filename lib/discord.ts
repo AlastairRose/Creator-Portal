@@ -84,6 +84,30 @@ export async function announceVideoCallResponse(requestId: string): Promise<void
   }
 }
 
+// "@everyone Lola has completed this video call. Please update the fan notes."
+export async function announceVideoCallCompleted(requestId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: r } = await admin
+      .from("video_call_requests")
+      .select("creator_id, fan_name, length_minutes, requested_by_name, completion_notes")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!r) return;
+    const { data: creator } = await admin.from("creators").select("name").eq("id", r.creator_id).maybeSingle();
+    const safe = (s: unknown) => String(s ?? "").replace(/@/g, "@\u200b").replace(/[*_`~|>]/g, "");
+    await postToDiscord(
+      [
+        `@everyone **${safe(creator?.name ?? "A creator")}** has completed this video call. Please update the fan notes.`,
+        `Fan: ${safe(r.fan_name)} · ${r.length_minutes} min · requested by ${safe(r.requested_by_name)}`,
+        `Her notes: ${safe(r.completion_notes)}`,
+      ].join("\n")
+    );
+  } catch (err) {
+    console.error("Couldn't announce completed video call on Discord:", err);
+  }
+}
+
 // Owner-only check that the webhook works. Returns a readable result.
 export async function sendDiscordTest(): Promise<{ error: string | null }> {
   const url = process.env.DISCORD_VIDEO_CALL_WEBHOOK_URL;

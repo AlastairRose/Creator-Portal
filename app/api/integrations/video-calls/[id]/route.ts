@@ -13,6 +13,7 @@ type Action = "cancel" | "paid" | "unpaid" | "seen";
  *   paid   - fan paid for an accepted call -> creator told it's ready
  *   unpaid - fan didn't pay for an accepted call -> cancelled, creator told
  *   seen   - someone on the team has passed the creator's answer to the fan
+ *            (or, for a completed call, has updated the fan notes)
  * Each update only applies from the right starting status, so two chatters
  * clicking at once can't both win.
  */
@@ -47,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       break;
     case "seen":
       update = { team_seen_at: now, team_seen_by_name: actorName };
-      fromStatuses = ["pending", "missed", "declined"];
+      fromStatuses = ["pending", "missed", "declined", "completed"];
       conflictMessage = "Nothing to mark as done on this request.";
       break;
     default:

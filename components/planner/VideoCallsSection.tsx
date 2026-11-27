@@ -35,6 +35,7 @@ export default function VideoCallsSection({
         canRespond={!isStaff}
         showCreator={false}
         renderedAt={renderedAt}
+        canDelete={isOwner}
       />
     </section>
   );

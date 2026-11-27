@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/roles";
-import { announceVideoCallResponse } from "@/lib/discord";
+import { announceVideoCallCompleted, announceVideoCallResponse } from "@/lib/discord";
 import { isNoReply, MAX_ALTERNATIVE_TIMES, PAYMENT_WINDOW_MINUTES, type DeclineReason } from "@/lib/video-calls";
 
 export type VideoCallResponse =
@@ -89,5 +89,47 @@ export async function respondToVideoCall(id: string, response: VideoCallResponse
   revalidatePath("/video-calls");
   revalidatePath(`/planner/${profile.creator_id}`);
   revalidatePath("/");
+  return { error: null };
+}
+
+// The creator confirms a paid call happened, with notes for the chat team to
+// add to the fan's notes. Clears it from her open calls.
+export async function completeVideoCall(id: string, notes: string): Promise<{ error: string | null }> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "creator" || !profile.creator_id) {
+    return { error: "Only the creator can mark this call complete." };
+  }
+  const cleanNotes = notes.trim().slice(0, 2000);
+  if (!cleanNotes) return { error: "Add a few notes about the call, so the chat team can update the fan's notes." };
+
+  const admin = createAdminClient();
+  const { data: updated, error } = await admin
+    .from("video_call_requests")
+    .update({ status: "completed", completed_at: new Date().toISOString(), completion_notes: cleanNotes, team_seen_at: null, team_seen_by_name: null })
+    .eq("id", id)
+    .eq("creator_id", profile.creator_id)
+    .eq("status", "ready")
+    .select("id");
+  if (error) return { error: error.message };
+  if (!updated || updated.length === 0) return { error: "Only a paid call that's ready can be marked complete." };
+
+  await announceVideoCallCompleted(id);
+
+  revalidatePath("/video-calls");
+  revalidatePath(`/planner/${profile.creator_id}`);
+  revalidatePath("/");
+  return { error: null };
+}
+
+// Owner only: removes a request entirely (both portals read from here).
+export async function deleteVideoCall(id: string): Promise<{ error: string | null }> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "owner") return { error: "Only an admin can delete video call requests." };
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("video_call_requests").delete().eq("id", id).select("creator_id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "That request was already deleted." };
+  revalidatePath("/video-calls");
+  revalidatePath(`/planner/${data[0].creator_id}`);
   return { error: null };
 }

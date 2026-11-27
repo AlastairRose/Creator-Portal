@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { respondToVideoCall, type VideoCallResponse } from "@/lib/actions/video-calls";
+import { completeVideoCall, deleteVideoCall, respondToVideoCall, type VideoCallResponse } from "@/lib/actions/video-calls";
 import {
   DECLINE_REASON_LABELS,
   displayStatus,
@@ -44,6 +44,7 @@ const STATUS_TONE: Record<DisplayStatus, string> = {
   missed: "bg-orange/15 text-orange",
   accepted: "bg-warning/15 text-warning",
   ready: "bg-success/15 text-success",
+  completed: "bg-success/15 text-success",
   declined: "bg-surface-raised text-muted",
   cancelled: "bg-surface-raised text-muted",
 };
@@ -296,7 +297,7 @@ function MissedCard({ r, now, onDone }: { r: Row; now: number; onDone: () => voi
 }
 
 /** Accepted (waiting for the fan to pay) or paid and ready. */
-function InProgressCard({ r, now }: { r: Row; now: number }) {
+function InProgressCard({ r, now, onDone }: { r: Row; now: number; onDone?: () => void }) {
   const ready = r.status === "ready";
   return (
     <div id={r.id} className={`scroll-mt-6 rounded-lg border p-4 shadow-sm ${ready ? "border-success/50 bg-success/10" : "border-border bg-surface"}`}>
@@ -313,11 +314,107 @@ function InProgressCard({ r, now }: { r: Row; now: number }) {
       </p>
       <Details r={r} showCreator={false} />
       {r.notes && <p className="mt-3 whitespace-pre-wrap rounded-md bg-surface-raised p-3 text-sm">{r.notes}</p>}
+      {ready && onDone && <CompleteCall id={r.id} onDone={onDone} />}
     </div>
   );
 }
 
-function HistoryRow({ r, now, showCreator }: { r: Row; now: number; showCreator: boolean }) {
+/** After the call: she marks it done and leaves notes for the fan's notes. */
+function CompleteCall({ id, onDone }: { id: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-4 w-full rounded-md bg-success px-4 py-3 text-sm font-medium text-white hover:opacity-90"
+      >
+        Mark call complete
+      </button>
+    );
+  }
+  return (
+    <div className="mt-4 flex flex-col gap-3 rounded-md border border-border bg-surface p-3">
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        How did the call go? These notes go to the chat team for the fan&apos;s notes.
+        <textarea
+          id={`complete-notes-${id}`}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={4}
+          maxLength={2000}
+          placeholder="e.g. Lovely guy, talked about his trip to Bali, wants another call next week, likes the red outfit"
+          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+        />
+      </label>
+      {error && <p className="text-sm text-danger">{error}</p>}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            setError(null);
+            startTransition(async () => {
+              const result = await completeVideoCall(id, notes);
+              if (result.error) setError(result.error);
+              else onDone();
+            });
+          }}
+          className="flex-1 rounded-md bg-success px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Complete call"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-sm text-muted hover:underline">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Admin only, with a second tap to confirm. */
+function DeleteRequest({ id, onDone }: { id: string; onDone: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+      {confirming ? (
+        <>
+          <span className="text-muted">Delete this request for good?</span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await deleteVideoCall(id);
+                if (result.error) setError(result.error);
+                else onDone();
+              })
+            }
+            className="font-medium text-danger hover:underline disabled:opacity-50"
+          >
+            {pending ? "Deleting…" : "Yes, delete"}
+          </button>
+          <button type="button" onClick={() => setConfirming(false)} className="text-muted hover:underline">
+            Keep it
+          </button>
+        </>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)} className="text-danger hover:underline">
+          Delete
+        </button>
+      )}
+      {error && <span className="text-danger">{error}</span>}
+    </div>
+  );
+}
+
+function HistoryRow({ r, now, showCreator, onDelete }: { r: Row; now: number; showCreator: boolean; onDelete?: () => void }) {
   return (
     <div id={r.id} className="scroll-mt-6 rounded-lg border border-border bg-surface p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -341,6 +438,13 @@ function HistoryRow({ r, now, showCreator }: { r: Row; now: number; showCreator:
       )}
       {r.decline_note && <p className="mt-2 text-xs text-muted">Note: {r.decline_note}</p>}
       {r.decline_reason && r.status === "declined" && <p className="mt-1 text-xs text-muted">Reason: {DECLINE_REASON_LABELS[r.decline_reason]}</p>}
+      {r.completion_notes && (
+        <p className="mt-2 whitespace-pre-wrap rounded-md bg-surface-raised p-2 text-xs">
+          <span className="text-muted">Call notes: </span>
+          {r.completion_notes}
+        </p>
+      )}
+      {onDelete && <DeleteRequest id={r.id} onDone={onDelete} />}
     </div>
   );
 }
@@ -350,10 +454,12 @@ export default function VideoCallList({
   canRespond,
   showCreator,
   renderedAt,
+  canDelete = false,
 }: {
   requests: Row[];
   canRespond: boolean;
   showCreator: boolean;
+  canDelete?: boolean;
   renderedAt: number; // server clock at render, so the first paint matches on server and phone
 }) {
   const router = useRouter();
@@ -377,7 +483,10 @@ export default function VideoCallList({
     a.timing === b.timing ? a.expires_at.localeCompare(b.expires_at) : a.timing === "asap" ? -1 : 1
   );
   const missed = byStatus("no_reply");
-  const inProgress = requests.filter((r) => r.status === "accepted" || r.status === "ready").filter((r) => r.status === "accepted" || !r.paid_at || now - new Date(r.paid_at).getTime() < 12 * 3600e3);
+  // A paid call stays here until she marks it complete (up to a week).
+  const inProgress = requests
+    .filter((r) => r.status === "accepted" || r.status === "ready")
+    .filter((r) => r.status === "accepted" || !r.paid_at || now - new Date(r.paid_at).getTime() < 7 * 24 * 3600e3);
   const shownIds = new Set([...toAnswer, ...missed, ...inProgress].map((r) => r.id));
   const history = requests.filter((r) => !shownIds.has(r.id));
   const onDone = () => router.refresh();
@@ -398,14 +507,14 @@ export default function VideoCallList({
       {missed.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold">Missed</h2>
-          {missed.map((r) => (canRespond ? <MissedCard key={r.id} r={r} now={now} onDone={onDone} /> : <HistoryRow key={r.id} r={r} now={now} showCreator={showCreator} />))}
+          {missed.map((r) => (canRespond ? <MissedCard key={r.id} r={r} now={now} onDone={onDone} /> : <HistoryRow key={r.id} r={r} now={now} showCreator={showCreator} onDelete={canDelete ? onDone : undefined} />))}
         </section>
       )}
 
       {inProgress.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold">Accepted</h2>
-          {inProgress.map((r) => (canRespond ? <InProgressCard key={r.id} r={r} now={now} /> : <HistoryRow key={r.id} r={r} now={now} showCreator={showCreator} />))}
+          {inProgress.map((r) => (canRespond ? <InProgressCard key={r.id} r={r} now={now} onDone={onDone} /> : <HistoryRow key={r.id} r={r} now={now} showCreator={showCreator} onDelete={canDelete ? onDone : undefined} />))}
         </section>
       )}
 
@@ -413,7 +522,7 @@ export default function VideoCallList({
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold">Earlier</h2>
           {history.map((r) => (
-            <HistoryRow key={r.id} r={r} now={now} showCreator={showCreator} />
+            <HistoryRow key={r.id} r={r} now={now} showCreator={showCreator} onDelete={canDelete ? onDone : undefined} />
           ))}
         </section>
       )}

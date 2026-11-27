@@ -57,7 +57,7 @@ export default async function VideoCallsPage() {
         </p>
       </div>
       {profile.role === "owner" && <DiscordTestButton />}
-      <VideoCallList requests={requests} canRespond={!isStaff} showCreator={isStaff} renderedAt={serverNow()} />
+      <VideoCallList requests={requests} canRespond={!isStaff} showCreator={isStaff} renderedAt={serverNow()} canDelete={profile.role === "owner"} />
     </div>
   );
 }
