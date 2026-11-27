@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyCreator } from "@/lib/push";
 import { formatInTimeZone } from "@/lib/video-calls";
+import { announceUnconfirmedCall } from "@/lib/discord";
 
 // A request that arrives while a creator is asleep gets buried under other
 // notifications. If it still has no answer after 12 hours, send one fresh
@@ -137,4 +138,46 @@ export async function sendAttendanceReminders(admin: SupabaseClient): Promise<{ 
     reminded++;
   }
   return { reminded };
+}
+
+// About 15 minutes before a booked call she still hasn't confirmed: warn the
+// chat team in Discord so they can chase her before the fan is left waiting,
+// and send her one more notification. The schedule runs every 15 minutes, so
+// anything starting within the next 20 is caught (it lands 5-20 minutes before).
+const NO_CONFIRM_ALERT_MINUTES = 20;
+
+export async function sendUnconfirmedCallAlerts(admin: SupabaseClient): Promise<{ alerted: number }> {
+  const now = Date.now();
+  const { data, error } = await admin
+    .from("video_call_requests")
+    .select("id, creator_id, length_minutes")
+    .eq("status", "ready")
+    .eq("timing", "scheduled")
+    .is("attendance_confirmed_at", null)
+    .is("no_confirm_alert_sent_at", null)
+    .gt("requested_for", new Date(now).toISOString())
+    .lte("requested_for", new Date(now + NO_CONFIRM_ALERT_MINUTES * 60_000).toISOString());
+  if (error) throw new Error(error.message);
+
+  let alerted = 0;
+  for (const r of data ?? []) {
+    const { data: claimed } = await admin
+      .from("video_call_requests")
+      .update({ no_confirm_alert_sent_at: new Date(now).toISOString() })
+      .eq("id", r.id)
+      .is("no_confirm_alert_sent_at", null)
+      .select("id");
+    if (!claimed?.length) continue;
+
+    await announceUnconfirmedCall(r.id as string);
+    // Kept neutral on purpose: this shows on the creator's lock screen.
+    await notifyCreator(r.creator_id as string, {
+      title: "Your video call starts soon",
+      body: `Your ${r.length_minutes}-minute video call starts in about 15 minutes. Tap to confirm you'll be there.`,
+      url: `/video-calls#${r.id}`,
+      tag: `video-call-${r.id}`,
+    });
+    alerted++;
+  }
+  return { alerted };
 }

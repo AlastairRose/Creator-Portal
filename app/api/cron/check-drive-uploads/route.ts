@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkDriveUploads } from "@/lib/drive-upload-notifications";
-import { sendAttendanceReminders, sendCompleteCallReminders, sendVideoCallReminders } from "@/lib/video-call-reminders";
+import { sendAttendanceReminders, sendCompleteCallReminders, sendUnconfirmedCallAlerts, sendVideoCallReminders } from "@/lib/video-call-reminders";
 
 export const maxDuration = 60;
 
@@ -47,13 +47,22 @@ export async function GET(request: NextRequest) {
     attendanceReminders = { error: err instanceof Error ? err.message : "Reminders failed" };
   }
 
+  // And the 15-minute warning for booked calls she hasn't confirmed.
+  let unconfirmedCallAlerts: { alerted: number } | { error: string };
+  try {
+    unconfirmedCallAlerts = await sendUnconfirmedCallAlerts(admin);
+  } catch (err) {
+    console.error("Sending unconfirmed call alerts failed:", err);
+    unconfirmedCallAlerts = { error: err instanceof Error ? err.message : "Alerts failed" };
+  }
+
   try {
     const result = await checkDriveUploads(admin);
-    return NextResponse.json({ ...result, videoCallReminders, completeCallReminders, attendanceReminders });
+    return NextResponse.json({ ...result, videoCallReminders, completeCallReminders, attendanceReminders, unconfirmedCallAlerts });
   } catch (err) {
     console.error("Checking Drive uploads failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Check failed", videoCallReminders, completeCallReminders, attendanceReminders },
+      { error: err instanceof Error ? err.message : "Check failed", videoCallReminders, completeCallReminders, attendanceReminders, unconfirmedCallAlerts },
       { status: 500 }
     );
   }

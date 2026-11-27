@@ -133,6 +133,31 @@ export async function announceAttendanceConfirmed(requestId: string): Promise<vo
   }
 }
 
+// 15 minutes out and she hasn't confirmed: the team chases her now.
+export async function announceUnconfirmedCall(requestId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: r } = await admin
+      .from("video_call_requests")
+      .select("creator_id, fan_name, length_minutes, requested_for")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!r) return;
+    const { data: creator } = await admin.from("creators").select("name").eq("id", r.creator_id).maybeSingle();
+    const name = discordSafe(creator?.name ?? "A creator");
+    const when = r.requested_for ? ` at ${manilaTime(r.requested_for as string)} Manila time` : "";
+    await postToDiscord(
+      [
+        `⚠️ @everyone **${name}** hasn't confirmed her ${r.length_minutes}-minute video call with ${discordSafe(r.fan_name)}${when}. It starts in about 15 minutes.`,
+        `Message her in Creator Chats now and let management know. Keep the fan chat quiet until she's confirmed.`,
+        `${CHATTER_PORTAL_URL}/creator-chats`,
+      ].join("\n")
+    );
+  } catch (err) {
+    console.error("Couldn't post the unconfirmed call warning to Discord:", err);
+  }
+}
+
 // Owner-only check that the webhook works. Returns a readable result.
 export async function sendDiscordTest(): Promise<{ error: string | null }> {
   const url = process.env.DISCORD_VIDEO_CALL_WEBHOOK_URL;
