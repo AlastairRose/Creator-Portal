@@ -483,10 +483,8 @@ export default function VideoCallList({
     a.timing === b.timing ? a.expires_at.localeCompare(b.expires_at) : a.timing === "asap" ? -1 : 1
   );
   const missed = byStatus("no_reply");
-  // A paid call stays here until she marks it complete (up to a week).
-  const inProgress = requests
-    .filter((r) => r.status === "accepted" || r.status === "ready")
-    .filter((r) => r.status === "accepted" || !r.paid_at || now - new Date(r.paid_at).getTime() < 7 * 24 * 3600e3);
+  // A paid call stays here until she marks it complete.
+  const inProgress = requests.filter((r) => r.status === "accepted" || r.status === "ready");
   const shownIds = new Set([...toAnswer, ...missed, ...inProgress].map((r) => r.id));
   const history = requests.filter((r) => !shownIds.has(r.id));
   const onDone = () => router.refresh();

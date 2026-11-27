@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkDriveUploads } from "@/lib/drive-upload-notifications";
-import { sendVideoCallReminders } from "@/lib/video-call-reminders";
+import { sendCompleteCallReminders, sendVideoCallReminders } from "@/lib/video-call-reminders";
 
 export const maxDuration = 60;
 
@@ -28,13 +28,23 @@ export async function GET(request: NextRequest) {
     videoCallReminders = { error: err instanceof Error ? err.message : "Reminders failed" };
   }
 
+  // And reminders to mark paid calls complete (72h after payment, or 24h
+  // after a set call time, then daily).
+  let completeCallReminders: { reminded: number } | { error: string };
+  try {
+    completeCallReminders = await sendCompleteCallReminders(admin);
+  } catch (err) {
+    console.error("Sending complete-call reminders failed:", err);
+    completeCallReminders = { error: err instanceof Error ? err.message : "Reminders failed" };
+  }
+
   try {
     const result = await checkDriveUploads(admin);
-    return NextResponse.json({ ...result, videoCallReminders });
+    return NextResponse.json({ ...result, videoCallReminders, completeCallReminders });
   } catch (err) {
     console.error("Checking Drive uploads failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Check failed", videoCallReminders },
+      { error: err instanceof Error ? err.message : "Check failed", videoCallReminders, completeCallReminders },
       { status: 500 }
     );
   }
